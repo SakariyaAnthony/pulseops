@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { NAV } from "@/components/layout/nav-items";
+import { useProjectsQuery } from "@/hooks/queries";
 import { PROJECTS } from "@/lib/api/mock";
 import { ENVIRONMENTS, TIME_RANGES } from "@/lib/api/types";
 import { RANGE_LABEL, withScope } from "@/lib/scope";
@@ -15,7 +16,9 @@ export function CommandPalette() {
   const live = useUi((state) => state.live);
   const toggleCollapsed = useUi((state) => state.toggleCollapsed);
   const scope = useScope();
+  const projects = useProjectsQuery();
   const navigate = useNavigate();
+  const projectList = projects.data?.length ? projects.data : PROJECTS;
 
   const go = (path: string) => {
     navigate(withScope(path, scope));
@@ -54,7 +57,7 @@ export function CommandPalette() {
               ))}
             </CommandGroup>
             <CommandGroup heading="Project">
-              {PROJECTS.map((project) => (
+              {projectList.map((project) => (
                 <CommandItem
                   key={project.slug}
                   value={project.name}

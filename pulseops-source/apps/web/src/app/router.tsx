@@ -14,6 +14,7 @@ const ResourcesPage = lazy(() => import("@/features/resources/resources-page").t
 const ErrorsPage = lazy(() => import("@/features/errors/errors-page").then((module) => ({ default: module.ErrorsPage })));
 const AlertsPage = lazy(() => import("@/features/alerts/alerts-page").then((module) => ({ default: module.AlertsPage })));
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })));
+const InsightsPage = lazy(() => import("@/features/insights/insights-page").then((module) => ({ default: module.InsightsPage })));
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
       { path: "traces", element: <ComingSoonPage page="traces" /> },
       { path: "resources", element: <ResourcesPage /> },
       { path: "errors", element: <ErrorsPage /> },
-      { path: "insights", element: <ComingSoonPage page="insights" /> },
+      { path: "insights", element: <InsightsPage /> },
       { path: "alerts", element: <AlertsPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <ComingSoonPage page="missing" /> },

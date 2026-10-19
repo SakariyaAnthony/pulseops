@@ -70,6 +70,7 @@ export function SettingsPage() {
               </div>
             </Panel>
             <Panel title="Team">
+              {settings.team.length === 0 ? <p className="text-sm text-dim">Not configured</p> : null}
               <ul className="divide-y divide-line">
                 {settings.team.map((member) => (
                   <li key={member.email} className="flex items-center justify-between gap-3 py-2">
@@ -83,6 +84,7 @@ export function SettingsPage() {
               </ul>
             </Panel>
             <Panel title="Notification channels">
+              {settings.channels.length === 0 ? <p className="text-sm text-dim">Not configured</p> : null}
               <ul className="space-y-2">
                 {settings.channels.map((channel) => (
                   <li key={channel.id} className="flex items-center justify-between rounded-lg border border-line px-3 py-2 text-sm">
@@ -95,6 +97,7 @@ export function SettingsPage() {
               </ul>
             </Panel>
             <Panel title="Retention">
+              {settings.retention.length === 0 ? <p className="text-sm text-dim">Not configured</p> : null}
               <ul className="divide-y divide-line">
                 {settings.retention.map((item) => (
                   <li key={item.label} className="flex items-center justify-between py-2 text-sm">

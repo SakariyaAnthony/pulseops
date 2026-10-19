@@ -26,7 +26,7 @@ export const NAV: NavItem[] = [
   { to: "/traces", label: "Traces", icon: GitBranch, soon: true, group: "Monitor" },
   { to: "/resources", label: "Resources", icon: Cpu, group: "Monitor" },
   { to: "/errors", label: "Errors", icon: Bug, group: "Monitor" },
-  { to: "/insights", label: "Insights", icon: Sparkles, soon: true, group: "Detect" },
+  { to: "/insights", label: "Insights", icon: Sparkles, group: "Detect" },
   { to: "/alerts", label: "Alerts", icon: Bell, group: "Detect" },
   { to: "/settings", label: "Settings", icon: Settings, group: "Configure" },
 ];

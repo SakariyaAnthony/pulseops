@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import alerts, auth, endpoints, errors, health, ingest, metrics, overview, projects, resources, services, ws
+from app.routers import alerts, auth, endpoints, errors, health, ingest, insights, metrics, overview, projects, resources, services, ws
 
 app = FastAPI(title="PulseOps API", version="0.1.0")
 app.add_middleware(
@@ -21,6 +21,7 @@ app.include_router(services.router)
 app.include_router(endpoints.router)
 app.include_router(resources.router)
 app.include_router(errors.router)
+app.include_router(insights.router)
 app.include_router(alerts.router)
 app.include_router(ingest.router)
 app.include_router(ws.router)

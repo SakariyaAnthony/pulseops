@@ -84,10 +84,13 @@ export function EndpointDetailPage() {
                   series={[{ name: "requests", color: seriesColor.throughput, points: endpoint.throughput.series[0]?.points ?? [], area: true }]}
                 />
               </Panel>
-              <Panel title="Time spent">
-                <StackedBar segments={endpoint.timeSpent} />
-              </Panel>
+              {endpoint.timeSpent.length > 0 ? (
+                <Panel title="Time spent">
+                  <StackedBar segments={endpoint.timeSpent} />
+                </Panel>
+              ) : null}
             </div>
+            {endpoint.traces.length > 0 ? (
             <Panel className="mt-4" title="Slowest traces" description="Waterfall view ships with Traces.">
               <ul className="divide-y divide-line">
                 {endpoint.traces.map((trace) => (
@@ -103,6 +106,7 @@ export function EndpointDetailPage() {
                 ))}
               </ul>
             </Panel>
+            ) : null}
           </div>
         );
       }}

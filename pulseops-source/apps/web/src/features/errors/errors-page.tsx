@@ -76,7 +76,8 @@ function ErrorList({
                     <span className="text-danger">{group.type}</span> · {group.message}
                   </p>
                   <p className="mt-1 text-xs text-mute">
-                    {group.service} · {group.route} · {formatCompact(group.users)} users · last {formatRelative(group.lastSeen)}
+                    {group.service} · {group.route}
+                    {group.users > 0 ? ` · ${formatCompact(group.users)} users` : ""} · last {formatRelative(group.lastSeen)}
                   </p>
                 </div>
                 <div className="w-28">

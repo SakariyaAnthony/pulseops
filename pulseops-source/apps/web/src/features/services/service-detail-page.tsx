@@ -40,7 +40,11 @@ export function ServiceDetailPage() {
             <PageHeader
               eyebrow={`${scope.project} · ${scope.env}`}
               title={service.name}
-              description={`${service.description} · ${service.language} · ${service.instances} instances · ${service.version}`}
+              description={
+                [service.description, service.language, service.instances ? `${service.instances} instances` : null, service.version]
+                  .filter(Boolean)
+                  .join(" · ") || "Telemetry reported by this service."
+              }
             />
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <StatusBadge status={service.health} />
@@ -70,15 +74,17 @@ export function ServiceDetailPage() {
                       ]}
                     />
                   </Panel>
-                  <Panel title="Error rate">
-                    <TimeSeriesChart
-                      ariaLabel={`${service.name} error rate`}
-                      range={scope.range}
-                      unit="pct"
-                      deploys={service.errors.deploys}
-                      series={[{ name: "errors", color: seriesColor.errors, points: findSeries(service.errors.series, "errors"), area: true }]}
-                    />
-                  </Panel>
+                  {findSeries(service.errors.series, "errors").length > 0 ? (
+                    <Panel title="Error rate">
+                      <TimeSeriesChart
+                        ariaLabel={`${service.name} error rate`}
+                        range={scope.range}
+                        unit="pct"
+                        deploys={service.errors.deploys}
+                        series={[{ name: "errors", color: seriesColor.errors, points: findSeries(service.errors.series, "errors"), area: true }]}
+                      />
+                    </Panel>
+                  ) : null}
                 </div>
               </TabsContent>
               <TabsContent value="endpoints">
@@ -89,11 +95,16 @@ export function ServiceDetailPage() {
                 )}
               </TabsContent>
               <TabsContent value="dependencies">
-                <Panel title="Dependency map" description="Edge thickness follows traffic. Color follows latency and error health.">
-                  <DependencyMap nodes={service.dependencies.nodes} edges={service.dependencies.edges} highlight={service.name} />
-                </Panel>
+                {service.dependencies.nodes.length === 0 ? (
+                  <p className="text-sm text-dim">Dependency edges need span data, which this scan does not collect.</p>
+                ) : (
+                  <Panel title="Dependency map" description="Edge thickness follows traffic. Color follows latency and error health.">
+                    <DependencyMap nodes={service.dependencies.nodes} edges={service.dependencies.edges} highlight={service.name} />
+                  </Panel>
+                )}
               </TabsContent>
               <TabsContent value="resources">
+                {service.hosts.length === 0 ? <p className="text-sm text-dim">No host samples in this range.</p> : null}
                 <div className="grid gap-2 sm:grid-cols-2">
                   {service.hosts.map((instance) => (
                     <div key={instance.host} className="glass shadow-card rounded-xl2 p-4">

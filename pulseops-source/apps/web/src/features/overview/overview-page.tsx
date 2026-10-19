@@ -7,7 +7,7 @@ import { Panel } from "@/components/shared/panel";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, PageSkeleton, QueryGate } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { useOverviewQuery } from "@/hooks/queries";
+import { useInsightsQuery, useOverviewQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { formatCompact, formatMs, formatPct, formatRelative } from "@/lib/format";
 import { RANGE_LABEL, withScope } from "@/lib/scope";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 export function OverviewPage() {
   const scope = useScope();
   const query = useOverviewQuery();
+  const insights = useInsightsQuery();
   const zoomKey = `${scope.project}:${scope.env}:${scope.range}`;
   const [zoomState, setZoomState] = useState<{ key: string; zoom: ZoomWindow } | null>(null);
   const zoom = zoomState?.key === zoomKey ? zoomState.zoom : null;
@@ -128,8 +129,11 @@ export function OverviewPage() {
                 </ul>
               </Panel>
               <Panel className="xl:col-span-3" title="Signals" description="Preview of the insights feed">
+                {(insights.data ?? []).length === 0 ? (
+                  <p className="text-sm text-dim">No findings in this range.</p>
+                ) : null}
                 <ul className="space-y-3">
-                  {data.insights.map((insight) => (
+                  {(insights.data ?? []).slice(0, 3).map((insight) => (
                     <li key={insight.id} className="rounded-lg border border-line bg-base/40 p-3">
                       <p className={cn("text-[11px] font-medium uppercase tracking-wide", insight.severity === "critical" ? "text-danger" : insight.severity === "warning" ? "text-warning" : "text-info")}>
                         {insight.severity}

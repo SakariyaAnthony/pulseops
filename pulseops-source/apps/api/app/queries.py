@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 from uuid import UUID
 
 from sqlalchemy import text
@@ -902,6 +902,91 @@ def build_error_detail(db: Session, project: Project, window: Window, fingerprin
             for row in events
         ],
     }
+
+
+def build_insights(db: Session, project: Project, window: Window) -> dict:
+    groups = _fetch_groups(db, project.id, window)
+    errors = build_errors(db, project, window)
+    resources = build_resources(db, project, window, None)
+    insights: list[dict] = []
+    for group in groups:
+        totals: Totals = group["totals"]
+        if totals.calls <= 0:
+            continue
+        method = group["method"]
+        route = group["route"]
+        key = _endpoint_key(method, route)
+        href = "/endpoints/" + quote(key, safe="")
+        p95 = totals.percentile(0.95)
+        if p95 >= 800:
+            if route.startswith("page:"):
+                title = f"Slow page {route[5:] or '/'}"
+            else:
+                title = f"Slow {method} {route}"
+            insights.append(
+                {
+                    "id": f"slow:{key}",
+                    "severity": "critical" if p95 >= 1500 else "warning",
+                    "title": title,
+                    "body": f"p95 is {_round(p95)} ms across {int(round(totals.calls))} calls.",
+                    "href": href,
+                }
+            )
+        if totals.error_pct >= 1:
+            insights.append(
+                {
+                    "id": f"errors:{key}",
+                    "severity": "critical" if totals.error_pct >= 5 else "warning",
+                    "title": f"Error hotspot on {method} {route}",
+                    "body": f"{_round(totals.error_pct, 2)}% of calls returned 5xx.",
+                    "href": href,
+                }
+            )
+    for group in errors["groups"]:
+        count = int(group["count"])
+        if count < 2:
+            continue
+        route = group["route"] or "unknown route"
+        service = group["service"] or "the app"
+        insights.append(
+            {
+                "id": f"fingerprint:{group['fingerprint']}",
+                "severity": "critical" if count >= 50 else "warning",
+                "title": group["message"] or group["type"] or "Repeated error",
+                "body": f"{count} events on {service} · {route}.",
+                "href": "/errors",
+            }
+        )
+    metrics = resources["metrics"]
+    for series in metrics.get("cpu_pct", {}).get("series", []):
+        points = series.get("points") or []
+        if not points or points[-1][1] < 85:
+            continue
+        insights.append(
+            {
+                "id": f"cpu:{series['name']}",
+                "severity": "critical",
+                "title": f"CPU saturation on {series['name']}",
+                "body": f"Latest CPU is {_round(points[-1][1])}%.",
+                "href": "/resources",
+            }
+        )
+    for series in metrics.get("mem_rss_mb", {}).get("series", []):
+        points = series.get("points") or []
+        if not points or points[-1][1] < 1800:
+            continue
+        insights.append(
+            {
+                "id": f"memory:{series['name']}",
+                "severity": "critical",
+                "title": f"Memory saturation on {series['name']}",
+                "body": f"Latest RSS is {_round(points[-1][1])} MB.",
+                "href": "/resources",
+            }
+        )
+    rank = {"critical": 0, "warning": 1, "info": 2}
+    insights.sort(key=lambda item: (rank.get(item["severity"], 3), item["title"]))
+    return {**_window_meta(window), "insights": insights[:24]}
 
 
 def build_snapshot(db: Session, project_id: UUID) -> dict:

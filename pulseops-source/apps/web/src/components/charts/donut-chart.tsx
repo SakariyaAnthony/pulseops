@@ -5,6 +5,10 @@ import { ensureAuroraTheme } from "@/lib/echarts-theme";
 import type { StatusSlice } from "@/lib/api/types";
 
 const COLORS: Record<string, string> = {
+  "2xx": "#34D399",
+  "3xx": "#60A5FA",
+  "4xx": "#FBBF24",
+  "5xx": "#F43F5E",
   "200": "#34D399",
   "201": "#22D3EE",
   "204": "#60A5FA",

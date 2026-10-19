@@ -10,7 +10,6 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { useIncidentsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { probeApi } from "@/lib/api/client";
-import { projectBySlug } from "@/lib/api/mock";
 import { TIME_RANGES } from "@/lib/api/types";
 import { connectLive } from "@/lib/ws";
 import { useSession } from "@/store/session";
@@ -64,7 +63,7 @@ export function AppShell() {
     void probeApi().then((up) => {
       if (stopped || !up) return;
       disconnect = connectLive({
-        projectId: projectBySlug(scope.project).id,
+        projectId: scope.project,
         token,
         onStatus: setConnected,
         onSnapshot: () => {

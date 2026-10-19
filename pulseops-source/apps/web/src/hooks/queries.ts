@@ -114,6 +114,17 @@ export function useIncidentsQuery() {
   });
 }
 
+export function useInsightsQuery() {
+  const scope = useScope();
+  const interval = useLiveInterval();
+  return useQuery({
+    queryKey: ["insights", scope.project, scope.env, scope.range, scope.chaos],
+    queryFn: () => api.insights(scope),
+    placeholderData: keepPreviousData,
+    refetchInterval: interval,
+  });
+}
+
 export function useSettingsQuery() {
   const scope = useScope();
   return useQuery({

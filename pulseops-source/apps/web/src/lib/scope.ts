@@ -26,5 +26,8 @@ export function scopeSearch(scope: Pick<Scope, "project" | "env" | "range" | "ch
 }
 
 export function withScope(path: string, scope: Pick<Scope, "project" | "env" | "range" | "chaos">): string {
-  return `${path}?${scopeSearch(scope)}`;
+  const [pathname, search = ""] = path.split("?");
+  const params = new URLSearchParams(scopeSearch(scope));
+  new URLSearchParams(search).forEach((value, key) => params.set(key, value));
+  return `${pathname}?${params.toString()}`;
 }

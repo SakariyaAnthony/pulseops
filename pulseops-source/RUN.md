@@ -74,6 +74,41 @@ The overview should show the seeded shop traffic (about 95 ms average, not the o
 
 Ingest key for the demo project: `po_live_shop_api_demo_key`.
 
+## 5. Scan a React app
+
+Create a project so its traffic stays separate from the seeded shop. From any directory, with the API running:
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:47322/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"demo@pulseops.dev","password":"pulseops-demo"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+
+curl -s -X POST http://127.0.0.1:47322/projects \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name":"My React app"}'
+```
+
+Copy `api_key.token` from that response. It is shown once. In the dashboard top bar, select the new project and environment `dev`.
+
+In the React app entry (`main.tsx` or `index.tsx`), before `createRoot`:
+
+```ts
+import { startPulseOps } from "<path-to-pulseops>/pulseops-source/packages/sdk-browser/src/index.ts";
+
+startPulseOps({
+  url: "http://127.0.0.1:47322",
+  apiKey: "<api_key.token>",
+  service: "my-react-app",
+  env: "dev",
+});
+```
+
+Use the app, including a slow screen and one that throws. Within about 15 seconds, open PulseOps on the last 15 minutes. Page loads and fetches are on API. Thrown errors are on Errors. Insights lists slow pages and repeated errors.
+
+The key is visible in the browser bundle. Use it for this local scan only.
+
 ## Stop
 
 Stop the dashboard and the API with Ctrl+C in each terminal. Then:

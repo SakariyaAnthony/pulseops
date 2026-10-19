@@ -52,7 +52,7 @@ export function ServicesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-ink">{service.name}</p>
-                    <p className="mt-1 text-xs text-mute">{service.description}</p>
+                    {service.description ? <p className="mt-1 text-xs text-mute">{service.description}</p> : null}
                   </div>
                   <StatusBadge status={service.health} />
                 </div>
@@ -63,7 +63,7 @@ export function ServicesPage() {
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <p className="text-[11px] text-mute">
-                    {service.instances} instances · {service.version} · {service.language}
+                    {[service.instances ? `${service.instances} instances` : null, service.version, service.language].filter(Boolean).join(" · ") || "Live telemetry"}
                   </p>
                   <div className="w-24">
                     <Sparkline data={service.spark} color={service.health === "critical" ? "#F43F5E" : "#22D3EE"} />
