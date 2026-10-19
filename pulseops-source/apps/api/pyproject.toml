@@ -1,0 +1,33 @@
+[project]
+name = "pulseops-api"
+version = "0.1.0"
+description = "PulseOps performance monitoring API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "alembic>=1.14",
+  "fastapi>=0.115",
+  "psycopg[binary]>=3.2",
+  "pydantic-settings>=2.6",
+  "pyjwt>=2.10",
+  "redis>=5.2",
+  "sqlalchemy>=2.0",
+  "uvicorn[standard]>=0.32",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28",
+  "pytest>=8.3",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

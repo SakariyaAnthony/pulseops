@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #0a0b14;
+  --bg-surface: #10121f;
+  --bg-elevated: #171a2c;
+  --border-subtle: #232741;
+  --border-glow: rgba(124, 92, 255, 0.35);
+  --text-primary: #eef0ff;
+  --text-secondary: #9aa0c3;
+  --text-muted: #5e6490;
+  --accent-violet: #7c5cff;
+  --accent-cyan: #22d3ee;
+  --accent-pink: #f472b6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f43f5e;
+  --info: #60a5fa;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(124, 92, 255, 0.35);
+  color: #fff;
+}
+
+.num {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    rgba(16, 18, 31, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+}
+
+.aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(920px 540px at -8% -12%, rgba(124, 92, 255, 0.14), transparent 56%),
+    radial-gradient(820px 500px at 108% 108%, rgba(34, 211, 238, 0.12), transparent 52%);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #171a2c 0%, #2a3050 45%, #171a2c 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+[data-density="compact"] .page-main {
+  padding-top: 0.85rem;
+  padding-bottom: 1.25rem;
+}
+
+[data-density="compact"] .kpi-value {
+  font-size: 26px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232741;
+  border-radius: 999px;
+  border: 2px solid #0a0b14;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .animate-pulseRing {
+    animation: none !important;
+  }
+}
