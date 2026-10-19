@@ -201,6 +201,8 @@ class ScanAsset(Base):
     routes_json: Mapped[list] = mapped_column(JSONB, default=list)
     transfer_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    failure_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    signals_json: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     asset: Mapped[Asset | None] = relationship()
 

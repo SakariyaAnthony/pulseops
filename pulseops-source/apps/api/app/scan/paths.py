@@ -23,10 +23,23 @@ SKIP_DIRS = {
 SECRET_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 
 
+def default_scan_root() -> Path:
+    """Home directory of the person who started the API. sudo keeps SUDO_USER and drops other variables."""
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user and sudo_user != "root":
+        try:
+            import pwd
+
+            return Path(pwd.getpwnam(sudo_user).pw_dir).expanduser().resolve()
+        except KeyError:
+            pass
+    return Path.home().resolve()
+
+
 def scan_roots() -> list[Path]:
     raw = settings.scan_roots.strip()
     if not raw:
-        return []
+        return [default_scan_root()]
     roots: list[Path] = []
     for part in raw.split(os.pathsep):
         if not part.strip():
@@ -44,8 +57,6 @@ def is_secret(path: Path) -> bool:
 
 def resolve_repository(raw: str) -> Path:
     roots = scan_roots()
-    if not roots:
-        raise HTTPException(status_code=422, detail="Set PULSEOPS_SCAN_ROOTS before registering a repository")
     candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
         raise HTTPException(status_code=422, detail="Repository path must be absolute")
@@ -62,7 +73,8 @@ def resolve_repository(raw: str) -> Path:
             continue
         else:
             return resolved
-    raise HTTPException(status_code=422, detail="Repository path is outside the allowed scan roots")
+    allowed = ", ".join(str(root) for root in roots)
+    raise HTTPException(status_code=422, detail=f"Repository path must be inside {allowed}")
 
 
 def inside(root: Path, candidate: Path) -> Path | None:

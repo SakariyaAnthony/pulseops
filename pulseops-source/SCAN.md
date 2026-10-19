@@ -165,16 +165,10 @@ From `apps/api`, apply the scan tables and install the scanner libraries. If the
 . .venv/bin/activate
 alembic upgrade head
 python -m pip install --target .vendor playwright tree-sitter tree-sitter-javascript tree-sitter-typescript tree-sitter-css tree-sitter-html
-.vendor/bin/playwright install chromium
+PYTHONPATH=.vendor .venv/bin/python -m playwright install chromium
 ```
 
-Set the directories PulseOps is allowed to read. A path outside this list is rejected:
-
-```bash
-export PULSEOPS_SCAN_ROOTS="$HOME/Documents"
-```
-
-Restart `python -m app` after that export. The migration and the environment variable are loaded only on startup.
+A repository path is allowed when it is inside your home directory. The API uses that default even when it is started with sudo. To allow a different folder, set `PULSEOPS_SCAN_ROOTS` in `apps/api/.env` and restart `python -m app`. A shell export is not visible to a process started with sudo.
 
 In the dashboard, open Settings for the project and save:
 

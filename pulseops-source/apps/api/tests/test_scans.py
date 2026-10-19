@@ -69,6 +69,7 @@ def test_static_scan_does_not_write_live_metrics(client, auth, tmp_path: Path):
 def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth, monkeypatch, tmp_path: Path):
     allowed = tmp_path / "app"
     allowed.mkdir()
+    (allowed / "hero.png").write_bytes(b"hero")
     settings.scan_roots = str(tmp_path)
 
     def fake_collect(base_url, routes, viewport, timeout_ms, should_cancel):
@@ -103,7 +104,18 @@ def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth
                     resource_type="fetch",
                 )
             ],
-            "assets": [],
+            "assets": [
+                observation_record(
+                    route="/checkout",
+                    method="GET",
+                    url_path="/hero.png",
+                    status_code=None,
+                    duration_ms=40,
+                    transfer_bytes=1200,
+                    failure_type="timeout",
+                    resource_type="image",
+                )
+            ],
         }
 
     monkeypatch.setattr("app.scan.worker.collect_routes", fake_collect)
@@ -123,7 +135,7 @@ def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth
         )
         assert saved.status_code == 200, saved.text
         before = _count_requests(project_id)
-        started = client.post(f"/projects/{slug}/scans", json={"mode": "browser"}, headers=auth["headers"])
+        started = client.post(f"/projects/{slug}/scans", json={"mode": "full"}, headers=auth["headers"])
         assert started.status_code == 201, started.text
         scan_id = started.json()["id"]
         assert started.json()["status"] == "failed"
@@ -138,6 +150,11 @@ def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth
         dumped = apis.text.lower()
         assert "authorization" not in dumped
         assert "cookie" not in dumped
+        assets = client.get(f"/scans/{scan_id}/assets", headers=auth["headers"])
+        assert assets.status_code == 200, assets.text
+        loads = assets.json()["summary"]["load_performance"]
+        assert loads[0]["file_path"] == "hero.png"
+        assert loads[0]["failure_type"] == "timeout"
         pages = client.get(f"/scans/{scan_id}/pages", headers=auth["headers"])
         assert pages.json()["pages"][0]["metric_source"] == "lab"
         assert pages.json()["pages"][0]["lcp_ms"] is None

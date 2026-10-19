@@ -13,7 +13,7 @@ export function Sidebar({ alertCount = 0, onNavigate }: { alertCount?: number; o
   const toggle = useUi((state) => state.toggleCollapsed);
   const source = useUi((state) => state.source);
   const scope = useScope();
-  const groups = ["Monitor", "Detect", "Configure"];
+  const groups = ["Monitor", "Scan", "Detect", "Configure"];
 
   return (
     <div className={cn("flex h-full flex-col border-r border-line bg-base/80 backdrop-blur-xl", collapsed ? "w-16" : "w-60")}>

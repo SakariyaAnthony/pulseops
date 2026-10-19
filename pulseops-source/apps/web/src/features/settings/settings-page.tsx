@@ -1,21 +1,17 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Panel } from "@/components/shared/panel";
 import { QueryGate } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { api } from "@/lib/api/client";
 import { maskKey } from "@/lib/api/overrides";
-import type { ScanSetup } from "@/lib/api/types";
-import { withScope } from "@/lib/scope";
 import { useUi, type Density } from "@/store/ui";
 
 export function SettingsPage() {
@@ -111,7 +107,6 @@ export function SettingsPage() {
                 ))}
               </ul>
             </Panel>
-            <ScanConfigForm project={scope.project} scan={settings.scan} />
             <Panel title="Density" description="Compact tightens the page padding and KPI type.">
               <div className="flex gap-2">
                 {(["comfortable", "compact"] as Density[]).map((option) => (
@@ -137,67 +132,6 @@ export function SettingsPage() {
         </div>
       )}
     </QueryGate>
-  );
-}
-
-function ScanConfigForm({ project, scan }: { project: string; scan: ScanSetup }) {
-  const scope = useScope();
-  const client = useQueryClient();
-  const [draft, setDraft] = useState(scan);
-  useEffect(() => {
-    setDraft(scan);
-  }, [scan]);
-  const save = useMutation({
-    mutationFn: () =>
-      api.saveScanConfig(project, {
-        ...draft,
-        routes: draft.routes.map((route) => route.trim()).filter(Boolean),
-      }),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["settings", project] });
-      toast.success("Scan settings saved");
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const field = (label: string, value: string, onChange: (value: string) => void, placeholder?: string) => (
-    <label className="block text-sm">
-      <span className="text-dim">{label}</span>
-      <Input className="mt-1" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-  return (
-    <Panel
-      title="Lab scan"
-      description="PulseOps stores the start command and does not run it. The repository must sit inside PULSEOPS_SCAN_ROOTS."
-      action={
-        <Button size="sm" variant="secondary" disabled={save.isPending} onClick={() => save.mutate()}>
-          Save
-        </Button>
-      }
-    >
-      <div className="space-y-3">
-        {field("Repository path", draft.repositoryPath, (repositoryPath) => setDraft({ ...draft, repositoryPath }), "/absolute/path/to/app")}
-        {field("Base URL", draft.baseUrl, (baseUrl) => setDraft({ ...draft, baseUrl }), "http://127.0.0.1:5173")}
-        <label className="block text-sm">
-          <span className="text-dim">Routes</span>
-          <textarea
-            className="mt-1 min-h-20 w-full rounded-lg border border-line bg-base/70 px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-violet"
-            value={draft.routes.join("\n")}
-            onChange={(event) => setDraft({ ...draft, routes: event.target.value.split("\n") })}
-          />
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {field("Width", String(draft.viewportWidth), (value) => setDraft({ ...draft, viewportWidth: Number(value) || 1280 }))}
-          {field("Height", String(draft.viewportHeight), (value) => setDraft({ ...draft, viewportHeight: Number(value) || 720 }))}
-          {field("Timeout ms", String(draft.timeoutMs), (value) => setDraft({ ...draft, timeoutMs: Number(value) || 15000 }))}
-        </div>
-        {field("Start command", draft.startCommand, (startCommand) => setDraft({ ...draft, startCommand }), "npm run dev")}
-        {draft.framework ? <p className="text-xs text-mute">Detected framework: {draft.framework}</p> : null}
-        <Link className="text-xs text-violet" to={withScope("/scans", scope)}>
-          Open scans
-        </Link>
-      </div>
-    </Panel>
   );
 }
 

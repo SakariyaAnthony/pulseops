@@ -66,10 +66,10 @@ def _open_route(page, base_url: str, route: str, viewport: dict, timeout_ms: int
         if item is None:
             return
         captured.append(item)
-        if item["resource_type"] in API_TYPES or item["failure_type"]:
-            observations.append(item)
-        elif item["resource_type"] in {"image", "media", "font", "stylesheet"}:
+        if item["resource_type"] in {"image", "media", "font", "stylesheet"}:
             seen_assets.append(item)
+        elif item["resource_type"] in API_TYPES or item["failure_type"]:
+            observations.append(item)
 
     page.on("requestfinished", on_finished)
     page.on("requestfailed", on_finished)

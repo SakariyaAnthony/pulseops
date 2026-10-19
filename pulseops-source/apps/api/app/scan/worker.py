@@ -167,6 +167,11 @@ def _persist(scan_id, files, references, uncertain, pages, observations, seen_as
             by_path[item["file_path"]] = asset
         names = Counter(Path(path).name for path in by_path)
         observed = _observed_paths(by_path, names, seen_assets)
+        signals_by_path: dict[str, dict] = {}
+        for item in files:
+            signals_by_path[item["file_path"]] = {
+                key: item.get(key) for key in ("width", "height") if item.get(key) is not None
+            }
         referenced: dict[str, list[str]] = {}
         for ref in references:
             if ref["kind"] != "file" or not ref["target"]:
@@ -174,6 +179,8 @@ def _persist(scan_id, files, references, uncertain, pages, observations, seen_as
             referenced.setdefault(ref["target"], [])
             if ref["source_file"] not in referenced[ref["target"]]:
                 referenced[ref["target"]].append(ref["source_file"])
+            if ref.get("signals"):
+                signals_by_path.setdefault(ref["target"], {}).update(ref["signals"])
             asset = by_path.get(ref["target"])
             db.add(
                 AssetUsage(
@@ -245,6 +252,8 @@ def _persist(scan_id, files, references, uncertain, pages, observations, seen_as
                     routes_json=routes,
                     transfer_bytes=timing.get("transfer_bytes"),
                     duration_ms=timing.get("duration_ms"),
+                    failure_type=timing.get("failure_type"),
+                    signals_json=signals_by_path.get(path) or {},
                 )
             )
         for page in pages:
@@ -298,12 +307,17 @@ def _observed_paths(by_path: dict[str, Asset], names: Counter, seen_assets: list
             name_match = names[base] == 1 and (url_path == base or url_path.endswith("/" + base))
             if not path_match and not name_match:
                 continue
-            slot = matched.setdefault(file_path, {"routes": set(), "transfer_bytes": None, "duration_ms": None})
+            slot = matched.setdefault(
+                file_path,
+                {"routes": set(), "transfer_bytes": None, "duration_ms": None, "failure_type": None},
+            )
             slot["routes"].add(item["route"])
             if item.get("transfer_bytes") is not None:
                 slot["transfer_bytes"] = int(item["transfer_bytes"])
             if item.get("duration_ms") is not None:
                 slot["duration_ms"] = float(item["duration_ms"])
+            if item.get("failure_type"):
+                slot["failure_type"] = item["failure_type"]
     return matched
 
 

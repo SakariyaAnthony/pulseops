@@ -8,8 +8,9 @@ import { QueryGate } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScanApisQuery, useScanAssetsQuery, useScanPagesQuery, useScanQuery } from "@/hooks/queries";
-import type { ScanAssetRow, ScanEndpoint, ScanPage } from "@/lib/api/types";
+import type { ScanEndpoint, ScanPage } from "@/lib/api/types";
 import { api } from "@/lib/api/client";
+import { AssetReport } from "@/features/scans/asset-report";
 
 function bytes(value: number | null) {
   if (value == null) return "—";
@@ -59,9 +60,7 @@ export function ScanDetailPage() {
                 Cancel
               </Button>
             ) : null}
-            <Panel title="Assets" description="Potentially unused means the parsers and the tested routes did not see the file. It is not a deletion list.">
-              <AssetTable rows={assets.data ?? []} empty={finished && (assets.data?.length ?? 0) === 0} />
-            </Panel>
+            <AssetReport summary={assets.data?.summary ?? null} ready={finished && !assets.isLoading} />
             <Panel title="API" description="Percentiles come from this scan's samples. p95 needs at least 5 samples and p99 needs at least 20.">
               <ApiTable rows={apis.data?.endpoints ?? []} empty={finished && (apis.data?.endpoints.length ?? 0) === 0} />
             </Panel>
@@ -74,40 +73,6 @@ export function ScanDetailPage() {
         )
       }
     </QueryGate>
-  );
-}
-
-function AssetTable({ rows, empty }: { rows: ScanAssetRow[]; empty: boolean }) {
-  if (empty) return <p className="text-sm text-dim">No assets recorded.</p>;
-  if (rows.length === 0) return <p className="text-sm text-dim">Results appear when the scan finishes.</p>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="text-xs text-mute">
-          <tr>
-            <th className="py-2 pr-3 font-medium">Path</th>
-            <th className="py-2 pr-3 font-medium">Type</th>
-            <th className="py-2 pr-3 font-medium">Size</th>
-            <th className="py-2 pr-3 font-medium">Classification</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-t border-line align-top">
-              <td className="py-2 pr-3">
-                <p className="text-ink">{row.filePath}</p>
-                <p className="mt-1 max-w-xl text-xs text-dim">{row.explanation}</p>
-                {row.references.length ? <p className="mt-1 text-xs text-mute">Referenced by {row.references.join(", ")}</p> : null}
-                {row.duplicateOf ? <p className="mt-1 text-xs text-mute">Duplicate of {row.duplicateOf}</p> : null}
-              </td>
-              <td className="py-2 pr-3 text-dim">{row.assetType || "—"}</td>
-              <td className="num py-2 pr-3 text-dim">{bytes(row.fileSizeBytes)}</td>
-              <td className="py-2 pr-3 text-dim">{row.classification || "Referenced, runtime not checked"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

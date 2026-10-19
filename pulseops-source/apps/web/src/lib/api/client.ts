@@ -49,6 +49,7 @@ import type {
   Project,
   ResourcesPayload,
   RuleInput,
+  AssetSummary,
   ScanAssetRow,
   ScanEndpoint,
   ScanPage,
@@ -444,7 +445,7 @@ export const api = {
     return scan;
   },
 
-  async scanAssets(id: string): Promise<ScanAssetRow[]> {
+  async scanAssets(id: string): Promise<{ summary: AssetSummary; assets: ScanAssetRow[] }> {
     const remote = await tryGet(`/scans/${encodeURIComponent(id)}/assets?limit=500`);
     mark("api");
     return adaptScanAssets(remote);

@@ -21,6 +21,7 @@ import type {
   Series,
   ServiceDetail,
   ServiceSummary,
+  AssetSummary,
   ScanAssetRow,
   ScanEndpoint,
   ScanPage,
@@ -593,10 +594,83 @@ export function adaptScan(value: unknown): ScanRun | null {
   return adaptScans({ scans: [value] })[0] ?? null;
 }
 
-export function adaptScanAssets(value: unknown): ScanAssetRow[] {
+export function emptyAssetSummary(): AssetSummary {
+  return {
+    counts: {},
+    referenced: 0,
+    potentiallyUnused: 0,
+    missingReference: 0,
+    totalSizeBytes: 0,
+    totalTransferBytes: 0,
+    largest: [],
+    duplicates: [],
+    optimization: [],
+    lazyLoading: [],
+    loadPerformance: [],
+    locations: [],
+  };
+}
+
+export function adaptScanAssets(value: unknown): { summary: AssetSummary; assets: ScanAssetRow[] } {
   const record = asRecord(value);
+  const summaryRecord = asRecord(record?.summary);
+  const summary = emptyAssetSummary();
+  if (summaryRecord) {
+    const counts = asRecord(summaryRecord.counts);
+    summary.counts = counts
+      ? Object.fromEntries(Object.entries(counts).map(([key, count]) => [key, optionalNum(count) ?? 0]))
+      : {};
+    summary.referenced = optionalNum(summaryRecord.referenced) ?? 0;
+    summary.potentiallyUnused = optionalNum(summaryRecord.potentially_unused) ?? 0;
+    summary.missingReference = optionalNum(summaryRecord.missing_reference) ?? 0;
+    summary.totalSizeBytes = optionalNum(summaryRecord.total_size_bytes) ?? 0;
+    summary.totalTransferBytes = optionalNum(summaryRecord.total_transfer_bytes) ?? 0;
+    summary.largest = listOf(summaryRecord.largest).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [{ filePath: row.file_path, fileSizeBytes: optionalNum(row.file_size_bytes) ?? 0 }];
+    });
+    summary.duplicates = listOf(summaryRecord.duplicates).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [{ filePath: row.file_path, duplicateOf: text(row.duplicate_of) }];
+    });
+    summary.optimization = listOf(summaryRecord.optimization).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [{ filePath: row.file_path, notes: listOf(row.notes).map((note) => String(note)) }];
+    });
+    summary.lazyLoading = listOf(summaryRecord.lazy_loading).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [{ filePath: row.file_path, note: text(row.note) }];
+    });
+    summary.loadPerformance = listOf(summaryRecord.load_performance).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [
+        {
+          filePath: row.file_path,
+          durationMs: optionalNum(row.duration_ms),
+          transferBytes: optionalNum(row.transfer_bytes),
+          failureType: text(row.failure_type),
+        },
+      ];
+    });
+    summary.locations = listOf(summaryRecord.locations).flatMap((item) => {
+      const row = asRecord(item);
+      if (!row || typeof row.file_path !== "string") return [];
+      return [
+        {
+          filePath: row.file_path,
+          references: listOf(row.references).map((entry) => String(entry)),
+          routes: listOf(row.routes).map((entry) => String(entry)),
+        },
+      ];
+    });
+  }
   const list = record && Array.isArray(record.assets) ? record.assets : [];
-  return list.flatMap((item) => {
+  const assets = list.flatMap((item) => {
     const asset = asRecord(item);
     if (!asset || typeof asset.file_path !== "string") return [];
     return [
@@ -614,9 +688,15 @@ export function adaptScanAssets(value: unknown): ScanAssetRow[] {
         routes: Array.isArray(asset.routes) ? asset.routes.map((entry) => String(entry)) : [],
         transferBytes: optionalNum(asset.transfer_bytes),
         durationMs: optionalNum(asset.duration_ms),
+        failureType: text(asset.failure_type),
       },
     ];
   });
+  return { summary, assets };
+}
+
+function listOf(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 export function adaptScanApis(value: unknown): { endpoints: ScanEndpoint[]; requests: ScanRequest[] } {

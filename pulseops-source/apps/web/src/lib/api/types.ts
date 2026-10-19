@@ -243,6 +243,22 @@ export type ScanAssetRow = {
   routes: string[];
   transferBytes: number | null;
   durationMs: number | null;
+  failureType: string;
+};
+
+export type AssetSummary = {
+  counts: Record<string, number>;
+  referenced: number;
+  potentiallyUnused: number;
+  missingReference: number;
+  totalSizeBytes: number;
+  totalTransferBytes: number;
+  largest: { filePath: string; fileSizeBytes: number }[];
+  duplicates: { filePath: string; duplicateOf: string }[];
+  optimization: { filePath: string; notes: string[] }[];
+  lazyLoading: { filePath: string; note: string }[];
+  loadPerformance: { filePath: string; durationMs: number | null; transferBytes: number | null; failureType: string }[];
+  locations: { filePath: string; references: string[]; routes: string[] }[];
 };
 
 export type ScanEndpoint = {

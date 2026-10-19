@@ -11,6 +11,7 @@ from app.deps import fetch_project, get_current_user
 from app.models import ApiObservation, PageResult, Project, ScanAsset, ScanRun, User
 from app.scan.paths import clean_base_url, clean_routes, resolve_repository
 from app.scan.static import detect_framework
+from app.scan.report import summarize
 from app.scan.stats import median, percentile
 from app.scan.worker import enqueue
 from app.schemas import ScanConfigIn, ScanCreateIn
@@ -149,28 +150,32 @@ def scan_assets(
     query = db.query(ScanAsset).filter(ScanAsset.scan_id == scan.id)
     if classification:
         query = query.filter(ScanAsset.classification == classification)
-    total = query.count()
-    rows = query.order_by(ScanAsset.file_path).offset(offset).limit(limit).all()
+    rows = query.order_by(ScanAsset.file_path).all()
+    assets = [_asset_out(row) for row in rows]
     return {
-        "total": total,
-        "assets": [
-            {
-                "id": str(row.id),
-                "file_path": row.file_path,
-                "classification": row.classification,
-                "explanation": row.explanation,
-                "confidence": row.confidence,
-                "duplicate_of": row.duplicate_of,
-                "references": list(row.references_json or []),
-                "routes": list(row.routes_json or []),
-                "transfer_bytes": row.transfer_bytes,
-                "duration_ms": row.duration_ms,
-                "asset_type": row.asset.asset_type if row.asset is not None else None,
-                "file_size_bytes": row.asset.file_size_bytes if row.asset is not None else None,
-                "content_hash": row.asset.content_hash if row.asset is not None else None,
-            }
-            for row in rows
-        ],
+        "total": len(assets),
+        "summary": summarize(assets),
+        "assets": assets[offset : offset + limit],
+    }
+
+
+def _asset_out(row: ScanAsset) -> dict:
+    return {
+        "id": str(row.id),
+        "file_path": row.file_path,
+        "classification": row.classification,
+        "explanation": row.explanation,
+        "confidence": row.confidence,
+        "duplicate_of": row.duplicate_of,
+        "references": list(row.references_json or []),
+        "routes": list(row.routes_json or []),
+        "transfer_bytes": row.transfer_bytes,
+        "duration_ms": row.duration_ms,
+        "failure_type": row.failure_type,
+        "signals": row.signals_json or {},
+        "asset_type": row.asset.asset_type if row.asset is not None else None,
+        "file_size_bytes": row.asset.file_size_bytes if row.asset is not None else None,
+        "content_hash": row.asset.content_hash if row.asset is not None else None,
     }
 
 

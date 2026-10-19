@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
+import struct
+import zlib
 from pathlib import Path
 
 from app.scan.paths import SKIP_DIRS, inside, is_secret
@@ -33,7 +36,10 @@ MAX_PARSE_BYTES = 1_000_000
 
 def asset_type(path: Path) -> str:
     suffix = path.suffix.lower()
-    if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico"}:
+    folders = {part.lower() for part in path.parts}
+    if suffix == ".ico" or (suffix == ".svg" and any("icon" in part for part in folders)):
+        return "icon"
+    if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}:
         return "image"
     if suffix == ".svg":
         return "svg"
@@ -100,12 +106,15 @@ def inventory(repo: Path) -> list[dict]:
         if contained is None:
             continue
         size, digest = _hash_file(contained)
+        width, height = image_size(contained)
         found.append(
             {
                 "file_path": contained.relative_to(repo.resolve()).as_posix(),
                 "asset_type": asset_type(contained),
                 "file_size_bytes": size,
                 "content_hash": digest,
+                "width": width,
+                "height": height,
             }
         )
     return sorted(found, key=lambda item: item["file_path"])
@@ -190,11 +199,21 @@ def parse_references(repo: Path) -> tuple[list[dict], list[dict]]:
         dynamic: list[str] = []
         _collect(tree.root_node, source, found, dynamic)
         source_posix = relative.as_posix()
+        image_signals = _image_signals(tree.root_node, source, root, path)
         for ref in found:
             target, kind = _resolve(root, path, ref)
-            references.append({"source_file": source_posix, "reference": ref, "target": target, "kind": kind})
+            references.append(
+                {
+                    "source_file": source_posix,
+                    "reference": ref,
+                    "target": target,
+                    "kind": kind,
+                    "signals": image_signals.get(target or ""),
+                }
+            )
         for ref in dynamic:
             uncertain.append({"source_file": source_posix, "reference": ref, "reason": "dynamic reference"})
+    references.extend(_python_references(repo))
     return references, uncertain
 
 
@@ -215,3 +234,120 @@ def _resolve(repo: Path, source: Path, ref: str) -> tuple[str | None, str]:
     if contained.is_file():
         return relative, "file"
     return relative, "missing"
+
+
+def image_size(path: Path) -> tuple[int | None, int | None]:
+    try:
+        data = path.read_bytes()[:512_000]
+    except OSError:
+        return None, None
+    suffix = path.suffix.lower()
+    if suffix == ".png" and data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
+        width, height = struct.unpack(">II", data[16:24])
+        return int(width), int(height)
+    if suffix == ".gif" and data.startswith((b"GIF87a", b"GIF89a")) and len(data) >= 10:
+        width, height = struct.unpack("<HH", data[6:10])
+        return int(width), int(height)
+    if suffix in {".jpg", ".jpeg"}:
+        return _jpeg_size(data)
+    if suffix == ".webp" and data.startswith(b"RIFF") and data[8:12] == b"WEBP" and data[12:16] == b"VP8X" and len(data) >= 30:
+        return 1 + int.from_bytes(data[24:27], "little"), 1 + int.from_bytes(data[27:30], "little")
+    return None, None
+
+
+def _jpeg_size(data: bytes) -> tuple[int | None, int | None]:
+    if not data.startswith(b"\xff\xd8"):
+        return None, None
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        if marker in {0xC0, 0xC1, 0xC2}:
+            height, width = struct.unpack(">HH", data[index + 5 : index + 9])
+            return int(width), int(height)
+        if marker in {0xD8, 0xD9, 0x01} or 0xD0 <= marker <= 0xD7:
+            index += 2
+            continue
+        if index + 4 > len(data):
+            break
+        length = struct.unpack(">H", data[index + 2 : index + 4])[0]
+        if length < 2:
+            break
+        index += 2 + length
+    return None, None
+
+
+def _image_signals(node, source: bytes, repo: Path, source_path: Path) -> dict[str, dict]:
+    found: list[dict[str, str]] = []
+    _walk_images(node, source, found)
+    signals: dict[str, dict] = {}
+    for image in found:
+        target, kind = _resolve(repo, source_path, image.get("src", ""))
+        if kind != "file" or not target:
+            continue
+        slot = signals.setdefault(target, {"img": True, "has_srcset": True, "loading": "lazy", "fetchpriority": "high"})
+        slot["has_srcset"] = bool(slot["has_srcset"] and image.get("srcset"))
+        loading = image.get("loading", "").strip("'\"").lower()
+        if loading != "lazy":
+            slot["loading"] = loading or None
+        priority = image.get("fetchpriority", "").strip("'\"").lower()
+        if priority != "high":
+            slot["fetchpriority"] = priority or None
+    return signals
+
+
+def _walk_images(node, source: bytes, found: list[dict[str, str]]) -> None:
+    if node.type in {"jsx_self_closing_element", "jsx_opening_element"}:
+        tag = ""
+        attrs: dict[str, str] = {}
+        for child in node.children:
+            if not tag and child.type == "identifier":
+                tag = _text(child, source)
+            if child.type == "jsx_attribute":
+                name = ""
+                value = ""
+                for part in child.children:
+                    if not name and part.type in {"property_identifier", "identifier"}:
+                        name = _text(part, source).lower()
+                    elif part.type in {"string", "jsx_expression"}:
+                        value = _text(part, source)
+                if name:
+                    attrs[name] = value
+        if tag.lower() == "img":
+            found.append(attrs)
+    for child in node.children:
+        _walk_images(child, source, found)
+
+
+def _python_references(repo: Path) -> list[dict]:
+    found: list[dict] = []
+    root = repo.resolve()
+    for path in repo.rglob("*.py"):
+        relative = path.relative_to(repo)
+        if any(part in SKIP_DIRS for part in relative.parts) or is_secret(path):
+            continue
+        if path.stat().st_size > MAX_PARSE_BYTES:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and looks_like_asset(node.value):
+                target, kind = _resolve(root, path, node.value)
+                found.append(
+                    {
+                        "source_file": relative.as_posix(),
+                        "reference": node.value,
+                        "target": target,
+                        "kind": kind,
+                        "signals": None,
+                    }
+                )
+    return found
+
+
+def _png_chunk(tag: bytes, data: bytes) -> bytes:
+    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
