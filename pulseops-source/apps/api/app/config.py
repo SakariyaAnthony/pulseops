@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,8 @@ class Settings(BaseSettings):
     refresh_ttl_seconds: int = 60 * 60 * 24 * 7
     api_port: int = 47322
     rate_limit_per_minute: int = 6000
+    scan_roots: str = Field(default="", validation_alias="PULSEOPS_SCAN_ROOTS")
+    scan_inline: bool = Field(default=False, validation_alias="PULSEOPS_SCAN_INLINE")
 
 
 settings = Settings()

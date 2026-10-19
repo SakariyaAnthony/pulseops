@@ -16,6 +16,14 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 47321,
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:47322",
+        changeOrigin: true,
+        ws: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ""),
+      },
+    },
   },
   preview: {
     host: "0.0.0.0",

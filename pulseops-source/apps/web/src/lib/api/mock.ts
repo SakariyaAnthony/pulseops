@@ -910,6 +910,16 @@ export function mockSettings(projectSlug: string): SettingsPayload {
       { label: "1-minute rollups", value: "30 days" },
       { label: "Errors", value: "30 days" },
     ],
+    scan: {
+      repositoryPath: "",
+      framework: "",
+      baseUrl: "",
+      routes: ["/"],
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      timeoutMs: 15000,
+      startCommand: "",
+    },
   };
 }
 

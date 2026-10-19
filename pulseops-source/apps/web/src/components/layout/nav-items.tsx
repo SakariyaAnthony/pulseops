@@ -7,6 +7,7 @@ import {
   GitBranch,
   LayoutDashboard,
   Settings,
+  ScanSearch,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export const NAV: NavItem[] = [
   { to: "/traces", label: "Traces", icon: GitBranch, soon: true, group: "Monitor" },
   { to: "/resources", label: "Resources", icon: Cpu, group: "Monitor" },
   { to: "/errors", label: "Errors", icon: Bug, group: "Monitor" },
+  { to: "/scans", label: "Scans", icon: ScanSearch, group: "Scan" },
   { to: "/insights", label: "Insights", icon: Sparkles, group: "Detect" },
   { to: "/alerts", label: "Alerts", icon: Bell, group: "Detect" },
   { to: "/settings", label: "Settings", icon: Settings, group: "Configure" },

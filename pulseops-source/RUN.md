@@ -59,7 +59,7 @@ npm install
 npm run dev
 ```
 
-The dashboard listens on http://127.0.0.1:47321 and calls `http://127.0.0.1:47322` (`VITE_API_URL`).
+The dashboard listens on http://127.0.0.1:47321. In local dev the browser calls `/api` on that same address, and Vite forwards it to `http://127.0.0.1:47322`. Open the dashboard as http://127.0.0.1:47321.
 
 ## 4. Sign in
 
@@ -76,38 +76,7 @@ Ingest key for the demo project: `po_live_shop_api_demo_key`.
 
 ## 5. Scan a React app
 
-Create a project so its traffic stays separate from the seeded shop. From any directory, with the API running:
-
-```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:47322/auth/login \
-  -H 'content-type: application/json' \
-  -d '{"email":"demo@pulseops.dev","password":"pulseops-demo"}' \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
-
-curl -s -X POST http://127.0.0.1:47322/projects \
-  -H "authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"name":"My React app"}'
-```
-
-Copy `api_key.token` from that response. It is shown once. In the dashboard top bar, select the new project and environment `dev`.
-
-In the React app entry (`main.tsx` or `index.tsx`), before `createRoot`:
-
-```ts
-import { startPulseOps } from "<path-to-pulseops>/pulseops-source/packages/sdk-browser/src/index.ts";
-
-startPulseOps({
-  url: "http://127.0.0.1:47322",
-  apiKey: "<api_key.token>",
-  service: "my-react-app",
-  env: "dev",
-});
-```
-
-Use the app, including a slow screen and one that throws. Within about 15 seconds, open PulseOps on the last 15 minutes. Page loads and fetches are on API. Thrown errors are on Errors. Insights lists slow pages and repeated errors.
-
-The key is visible in the browser bundle. Use it for this local scan only.
+Follow [SCAN.md](SCAN.md). The dashboard has no New project button. That guide creates the project with `curl`, copies the browser snippet into the React app, and shows where the report appears.
 
 ## Stop
 

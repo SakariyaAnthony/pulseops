@@ -21,6 +21,12 @@ import type {
   Series,
   ServiceDetail,
   ServiceSummary,
+  ScanAssetRow,
+  ScanEndpoint,
+  ScanPage,
+  ScanRequest,
+  ScanRun,
+  ScanSetup,
   SettingsPayload,
   Severity,
   StatusSlice,
@@ -35,6 +41,10 @@ export function asRecord(value: unknown): Record<string, unknown> | null {
 
 export function num(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function optionalNum(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function text(value: unknown): string {
@@ -527,6 +537,147 @@ export function adaptIncidents(value: unknown, project: string, env?: EnvName): 
   });
 }
 
+export function emptyScan(): ScanSetup {
+  return {
+    repositoryPath: "",
+    framework: "",
+    baseUrl: "",
+    routes: ["/"],
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    timeoutMs: 15000,
+    startCommand: "",
+  };
+}
+
+export function adaptScanSetup(value: unknown): ScanSetup {
+  const record = asRecord(value);
+  const config = asRecord(record?.scan_config) ?? {};
+  const viewport = asRecord(config.viewport) ?? {};
+  const routes = Array.isArray(config.routes) ? config.routes.map((item) => String(item)).filter(Boolean) : ["/"];
+  return {
+    repositoryPath: text(record?.repository_path),
+    framework: text(record?.framework),
+    baseUrl: text(record?.base_url),
+    routes: routes.length ? routes : ["/"],
+    viewportWidth: optionalNum(viewport.width) || 1280,
+    viewportHeight: optionalNum(viewport.height) || 720,
+    timeoutMs: optionalNum(config.timeout_ms) || 15000,
+    startCommand: text(config.start_command),
+  };
+}
+
+export function adaptScans(value: unknown): ScanRun[] {
+  const record = asRecord(value);
+  const list = Array.isArray(value) ? value : record && Array.isArray(record.scans) ? record.scans : [];
+  return list.flatMap((item) => {
+    const scan = asRecord(item);
+    if (!scan || typeof scan.id !== "string") return [];
+    const progress = asRecord(scan.progress) ?? {};
+    return [
+      {
+        id: scan.id,
+        projectId: text(scan.project_id),
+        status: text(scan.status) || "queued",
+        mode: text(scan.mode),
+        progress: { stage: text(progress.stage), message: text(progress.message) },
+        errorSummary: text(scan.error_summary),
+        createdAt: text(scan.created_at),
+        completedAt: text(scan.completed_at),
+      },
+    ];
+  });
+}
+
+export function adaptScan(value: unknown): ScanRun | null {
+  return adaptScans({ scans: [value] })[0] ?? null;
+}
+
+export function adaptScanAssets(value: unknown): ScanAssetRow[] {
+  const record = asRecord(value);
+  const list = record && Array.isArray(record.assets) ? record.assets : [];
+  return list.flatMap((item) => {
+    const asset = asRecord(item);
+    if (!asset || typeof asset.file_path !== "string") return [];
+    return [
+      {
+        id: text(asset.id) || asset.file_path,
+        filePath: asset.file_path,
+        assetType: text(asset.asset_type),
+        fileSizeBytes: optionalNum(asset.file_size_bytes),
+        contentHash: text(asset.content_hash),
+        classification: text(asset.classification),
+        explanation: text(asset.explanation),
+        confidence: text(asset.confidence),
+        duplicateOf: text(asset.duplicate_of),
+        references: Array.isArray(asset.references) ? asset.references.map((entry) => String(entry)) : [],
+        routes: Array.isArray(asset.routes) ? asset.routes.map((entry) => String(entry)) : [],
+        transferBytes: optionalNum(asset.transfer_bytes),
+        durationMs: optionalNum(asset.duration_ms),
+      },
+    ];
+  });
+}
+
+export function adaptScanApis(value: unknown): { endpoints: ScanEndpoint[]; requests: ScanRequest[] } {
+  const record = asRecord(value);
+  const endpoints = (record && Array.isArray(record.endpoints) ? record.endpoints : []).flatMap((item) => {
+    const endpoint = asRecord(item);
+    if (!endpoint || typeof endpoint.endpoint_template !== "string") return [];
+    return [
+      {
+        method: text(endpoint.method) || "GET",
+        endpointTemplate: endpoint.endpoint_template,
+        count: optionalNum(endpoint.count) ?? 0,
+        sampleCount: optionalNum(endpoint.sample_count) ?? 0,
+        errorRate: optionalNum(endpoint.error_rate),
+        medianMs: optionalNum(endpoint.median_ms),
+        p95Ms: optionalNum(endpoint.p95_ms),
+        p99Ms: optionalNum(endpoint.p99_ms),
+      },
+    ];
+  });
+  const requests = (record && Array.isArray(record.requests) ? record.requests : []).flatMap((item) => {
+    const request = asRecord(item);
+    if (!request) return [];
+    return [
+      {
+        route: text(request.route),
+        method: text(request.method),
+        endpointTemplate: text(request.endpoint_template),
+        statusCode: optionalNum(request.status_code),
+        durationMs: optionalNum(request.duration_ms),
+        transferBytes: optionalNum(request.transfer_bytes),
+        failureType: text(request.failure_type),
+      },
+    ];
+  });
+  return { endpoints, requests };
+}
+
+export function adaptScanPages(value: unknown): ScanPage[] {
+  const record = asRecord(value);
+  const list = record && Array.isArray(record.pages) ? record.pages : [];
+  return list.flatMap((item) => {
+    const page = asRecord(item);
+    if (!page || typeof page.route !== "string") return [];
+    return [
+      {
+        route: page.route,
+        metricSource: text(page.metric_source) || "lab",
+        lcpMs: optionalNum(page.lcp_ms),
+        inpMs: optionalNum(page.inp_ms),
+        cls: optionalNum(page.cls),
+        totalTransferBytes: optionalNum(page.total_transfer_bytes),
+        durationMs: optionalNum(page.duration_ms),
+        sampleCount: optionalNum(page.sample_count) ?? 0,
+        status: text(page.status) || "ok",
+        errorSummary: text(page.error_summary),
+      },
+    ];
+  });
+}
+
 export function adaptSettings(value: unknown, slug: string): SettingsPayload | null {
   const record = asRecord(value);
   if (!record || typeof record.slug !== "string") return null;
@@ -546,6 +697,7 @@ export function adaptSettings(value: unknown, slug: string): SettingsPayload | n
     team: [],
     channels: [],
     retention: [],
+    scan: adaptScanSetup(record),
   };
 }
 

@@ -130,3 +130,21 @@ class EventPoint(BaseModel):
 
 class EventsIn(BaseModel):
     events: list[EventPoint] = Field(default_factory=list, max_length=1000)
+
+
+class ViewportIn(BaseModel):
+    width: int = Field(default=1280, ge=320, le=3840)
+    height: int = Field(default=720, ge=320, le=2160)
+
+
+class ScanConfigIn(BaseModel):
+    repository_path: str | None = Field(default=None, max_length=500)
+    base_url: str | None = Field(default=None, max_length=300)
+    routes: list[str] = Field(default_factory=lambda: ["/"], max_length=30)
+    viewport: ViewportIn = Field(default_factory=ViewportIn)
+    timeout_ms: int = Field(default=15000, ge=1000, le=120000)
+    start_command: str | None = Field(default=None, max_length=300)
+
+
+class ScanCreateIn(BaseModel):
+    mode: Literal["static", "browser", "full"] = "full"

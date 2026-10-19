@@ -125,6 +125,49 @@ export function useInsightsQuery() {
   });
 }
 
+export function useScansQuery() {
+  const scope = useScope();
+  return useQuery({
+    queryKey: ["scans", scope.project],
+    queryFn: () => api.scans(scope.project),
+  });
+}
+
+export function useScanQuery(id: string) {
+  return useQuery({
+    queryKey: ["scan", id],
+    queryFn: () => api.scan(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "queued" || status === "running" ? 2000 : false;
+    },
+  });
+}
+
+export function useScanAssetsQuery(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["scan-assets", id],
+    queryFn: () => api.scanAssets(id),
+    enabled,
+  });
+}
+
+export function useScanApisQuery(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["scan-apis", id],
+    queryFn: () => api.scanApis(id),
+    enabled,
+  });
+}
+
+export function useScanPagesQuery(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["scan-pages", id],
+    queryFn: () => api.scanPages(id),
+    enabled,
+  });
+}
+
 export function useSettingsQuery() {
   const scope = useScope();
   return useQuery({

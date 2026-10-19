@@ -15,6 +15,8 @@ const ErrorsPage = lazy(() => import("@/features/errors/errors-page").then((modu
 const AlertsPage = lazy(() => import("@/features/alerts/alerts-page").then((module) => ({ default: module.AlertsPage })));
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })));
 const InsightsPage = lazy(() => import("@/features/insights/insights-page").then((module) => ({ default: module.InsightsPage })));
+const ScansPage = lazy(() => import("@/features/scans/scans-page").then((module) => ({ default: module.ScansPage })));
+const ScanDetailPage = lazy(() => import("@/features/scans/scan-detail-page").then((module) => ({ default: module.ScanDetailPage })));
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -36,6 +38,8 @@ export const router = createBrowserRouter([
       { path: "resources", element: <ResourcesPage /> },
       { path: "errors", element: <ErrorsPage /> },
       { path: "insights", element: <InsightsPage /> },
+      { path: "scans", element: <ScansPage /> },
+      { path: "scans/:id", element: <ScanDetailPage /> },
       { path: "alerts", element: <AlertsPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <ComingSoonPage page="missing" /> },

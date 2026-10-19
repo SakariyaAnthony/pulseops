@@ -38,6 +38,15 @@ def project_out(db: Session, project: Project, *, include_demo_token: bool = Tru
         "slug": project.slug,
         "name": project.name,
         "created_at": iso(project.created_at),
+        "repository_path": project.repository_path,
+        "framework": project.framework,
+        "base_url": project.base_url,
+        "scan_config": project.scan_config or {
+            "routes": ["/"],
+            "viewport": {"width": 1280, "height": 720},
+            "timeout_ms": 15000,
+            "start_command": None,
+        },
         "environments": [{"id": str(env.id), "name": env.name} for env in envs],
         "api_keys": [
             {

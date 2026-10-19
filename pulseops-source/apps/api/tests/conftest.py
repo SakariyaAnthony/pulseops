@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+os.environ["PULSEOPS_SCAN_INLINE"] = "1"
+
 import pytest
 from alembic import command
 from alembic.config import Config

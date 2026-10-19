@@ -207,6 +207,78 @@ export type ResourcesPayload = {
   heatmap: { hosts: string[]; times: string[]; values: [number, number, number][] };
 };
 
+export type ScanSetup = {
+  repositoryPath: string;
+  framework: string;
+  baseUrl: string;
+  routes: string[];
+  viewportWidth: number;
+  viewportHeight: number;
+  timeoutMs: number;
+  startCommand: string;
+};
+
+export type ScanRun = {
+  id: string;
+  projectId: string;
+  status: string;
+  mode: string;
+  progress: { stage?: string; message?: string };
+  errorSummary: string;
+  createdAt: string;
+  completedAt: string;
+};
+
+export type ScanAssetRow = {
+  id: string;
+  filePath: string;
+  assetType: string;
+  fileSizeBytes: number | null;
+  contentHash: string;
+  classification: string;
+  explanation: string;
+  confidence: string;
+  duplicateOf: string;
+  references: string[];
+  routes: string[];
+  transferBytes: number | null;
+  durationMs: number | null;
+};
+
+export type ScanEndpoint = {
+  method: string;
+  endpointTemplate: string;
+  count: number;
+  sampleCount: number;
+  errorRate: number | null;
+  medianMs: number | null;
+  p95Ms: number | null;
+  p99Ms: number | null;
+};
+
+export type ScanRequest = {
+  route: string;
+  method: string;
+  endpointTemplate: string;
+  statusCode: number | null;
+  durationMs: number | null;
+  transferBytes: number | null;
+  failureType: string;
+};
+
+export type ScanPage = {
+  route: string;
+  metricSource: string;
+  lcpMs: number | null;
+  inpMs: number | null;
+  cls: number | null;
+  totalTransferBytes: number | null;
+  durationMs: number | null;
+  sampleCount: number;
+  status: string;
+  errorSummary: string;
+};
+
 export type SettingsPayload = {
   project: Project;
   environments: { name: EnvName; region: string }[];
@@ -214,6 +286,7 @@ export type SettingsPayload = {
   team: { name: string; email: string; role: string }[];
   channels: { id: string; kind: string; target: string; enabled: boolean }[];
   retention: { label: string; value: string }[];
+  scan: ScanSetup;
 };
 
 export type SessionUser = {

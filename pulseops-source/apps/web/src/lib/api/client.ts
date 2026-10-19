@@ -10,9 +10,15 @@ import {
   adaptResources,
   adaptRule,
   adaptRules,
+  adaptScan,
+  adaptScanApis,
+  adaptScanAssets,
+  adaptScanPages,
+  adaptScans,
   adaptServiceDetail,
   adaptServices,
   adaptSettings,
+  emptyScan,
 } from "@/lib/api/adapt";
 import {
   ackIncident,
@@ -43,6 +49,12 @@ import type {
   Project,
   ResourcesPayload,
   RuleInput,
+  ScanAssetRow,
+  ScanEndpoint,
+  ScanPage,
+  ScanRequest,
+  ScanRun,
+  ScanSetup,
   Scope,
   SessionUser,
   SettingsPayload,
@@ -52,8 +64,12 @@ import { useUi } from "@/store/ui";
 const DEMO_EMAIL = "demo@pulseops.dev";
 const DEMO_PASSWORD = "pulseops-demo";
 
+const LOCAL_API = "http://127.0.0.1:47322";
+
 export function apiBase(): string {
-  return (import.meta.env.VITE_API_URL || "http://127.0.0.1:47322").replace(/\/$/, "");
+  const configured = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  if (import.meta.env.DEV && (configured === "" || configured === LOCAL_API)) return "/api";
+  return configured || LOCAL_API;
 }
 
 let apiState: "unknown" | "up" | "down" = "unknown";
@@ -117,6 +133,27 @@ async function tryGet(path: string): Promise<unknown | null> {
 }
 
 type SendResult = { state: "ok"; body: unknown } | { state: "down" } | { state: "error" };
+
+async function sendJson(path: string, method: string, body?: unknown): Promise<unknown> {
+  if (!(await probeApi())) throw new Error("API is down");
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetch(`${apiBase()}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const textBody = await response.text();
+  const parsed = textBody ? (JSON.parse(textBody) as unknown) : null;
+  if (!response.ok) {
+    const record = parsed && typeof parsed === "object" ? (parsed as { detail?: unknown }) : null;
+    const detail = record?.detail;
+    throw new Error(typeof detail === "string" ? detail : "Request failed");
+  }
+  return parsed;
+}
 
 async function trySend(path: string, method: string, body?: unknown): Promise<SendResult> {
   if (!(await probeApi())) return { state: "down" };
@@ -192,6 +229,7 @@ function blankSettings(slug: string): SettingsPayload {
     team: [],
     channels: [],
     retention: [],
+    scan: emptyScan(),
   };
 }
 
@@ -391,10 +429,64 @@ export const api = {
   rotate(project: string) {
     return rotateKey(project);
   },
+
+  async scans(project: string): Promise<ScanRun[]> {
+    const remote = await tryGet(projectPath(project, "/scans"));
+    mark("api");
+    return adaptScans(remote);
+  },
+
+  async scan(id: string): Promise<ScanRun> {
+    const remote = await tryGet(`/scans/${encodeURIComponent(id)}`);
+    mark("api");
+    const scan = adaptScan(remote);
+    if (!scan) throw new Error("Scan not found");
+    return scan;
+  },
+
+  async scanAssets(id: string): Promise<ScanAssetRow[]> {
+    const remote = await tryGet(`/scans/${encodeURIComponent(id)}/assets?limit=500`);
+    mark("api");
+    return adaptScanAssets(remote);
+  },
+
+  async scanApis(id: string): Promise<{ endpoints: ScanEndpoint[]; requests: ScanRequest[] }> {
+    const remote = await tryGet(`/scans/${encodeURIComponent(id)}/apis`);
+    mark("api");
+    return adaptScanApis(remote);
+  },
+
+  async scanPages(id: string): Promise<ScanPage[]> {
+    const remote = await tryGet(`/scans/${encodeURIComponent(id)}/pages`);
+    mark("api");
+    return adaptScanPages(remote);
+  },
+
+  saveScanConfig(project: string, scan: ScanSetup) {
+    return sendJson(projectPath(project, "/scan-config"), "PATCH", {
+      repository_path: scan.repositoryPath || null,
+      base_url: scan.baseUrl || null,
+      routes: scan.routes,
+      viewport: { width: scan.viewportWidth, height: scan.viewportHeight },
+      timeout_ms: scan.timeoutMs,
+      start_command: scan.startCommand || null,
+    });
+  },
+
+  startScan(project: string, mode: "static" | "browser" | "full") {
+    return sendJson(projectPath(project, "/scans"), "POST", { mode }).then((body) => adaptScan(body));
+  },
+
+  cancelScan(id: string) {
+    return sendJson(`/scans/${encodeURIComponent(id)}/cancel`, "POST");
+  },
 };
 
 export function wsUrl(projectIdValue: string, token: string) {
-  const base = apiBase().replace(/^http/, "ws");
+  const base = apiBase();
   const params = new URLSearchParams({ project_id: projectIdValue, token });
-  return `${base}/ws?${params.toString()}`;
+  const socketBase = base.startsWith("/")
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${base}`
+    : base.replace(/^http/, "ws");
+  return `${socketBase}/ws?${params.toString()}`;
 }
