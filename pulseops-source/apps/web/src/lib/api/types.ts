@@ -226,7 +226,17 @@ export type ScanRun = {
   progress: { stage?: string; message?: string };
   errorSummary: string;
   createdAt: string;
+  startedAt: string;
   completedAt: string;
+  config: {
+    repositoryPath: string;
+    baseUrl: string;
+    framework: string;
+    routes: string[];
+    viewportWidth: number | null;
+    viewportHeight: number | null;
+    timeoutMs: number | null;
+  };
 };
 
 export type ScanAssetRow = {
@@ -246,7 +256,43 @@ export type ScanAssetRow = {
   failureType: string;
 };
 
+export type AssetIssue = {
+  filePath: string;
+  assetType: string;
+  sizeBytes: number | null;
+  transferBytes: number | null;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  routes: string[];
+  references: string[];
+  severity: string;
+  notes: string[];
+  kinds: string[];
+  failureType: string;
+  statusCode: number | null;
+  duplicateOf: string;
+  confidence: string;
+  inRepository: boolean;
+};
+
+export type AssetInsights = {
+  totalAssets: number;
+  byType: Record<string, { count: number; sizeBytes: number; transferBytes: number }>;
+  unusedBytes: number;
+  duplicateBytes: number;
+  largeBytes: number;
+  large: AssetIssue[];
+  quality: AssetIssue[];
+  failed: AssetIssue[];
+  slow: AssetIssue[];
+  unused: AssetIssue[];
+  duplicates: AssetIssue[];
+  missing: AssetIssue[];
+};
+
 export type AssetSummary = {
+  insights: AssetInsights;
   counts: Record<string, number>;
   referenced: number;
   potentiallyUnused: number;

@@ -130,6 +130,8 @@ export function useScansQuery() {
   return useQuery({
     queryKey: ["scans", scope.project],
     queryFn: () => api.scans(scope.project),
+    refetchInterval: (query) =>
+      query.state.data?.some((scan) => scan.status === "queued" || scan.status === "running") ? 1500 : false,
   });
 }
 

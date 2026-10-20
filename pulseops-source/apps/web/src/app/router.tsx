@@ -16,6 +16,7 @@ const AlertsPage = lazy(() => import("@/features/alerts/alerts-page").then((modu
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })));
 const InsightsPage = lazy(() => import("@/features/insights/insights-page").then((module) => ({ default: module.InsightsPage })));
 const ScansPage = lazy(() => import("@/features/scans/scans-page").then((module) => ({ default: module.ScansPage })));
+const ScanHistoryPage = lazy(() => import("@/features/scans/scan-history-page").then((module) => ({ default: module.ScanHistoryPage })));
 const ScanDetailPage = lazy(() => import("@/features/scans/scan-detail-page").then((module) => ({ default: module.ScanDetailPage })));
 
 export const router = createBrowserRouter([
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: "errors", element: <ErrorsPage /> },
       { path: "insights", element: <InsightsPage /> },
       { path: "scans", element: <ScansPage /> },
+      { path: "scans/history", element: <ScanHistoryPage /> },
       { path: "scans/:id", element: <ScanDetailPage /> },
       { path: "alerts", element: <AlertsPage /> },
       { path: "settings", element: <SettingsPage /> },

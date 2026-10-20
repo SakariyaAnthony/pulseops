@@ -183,4 +183,17 @@ Open Scans.
 - Browser opens the routes and records lab page metrics and API calls.
 - Full does both.
 
+The Scans page shows setup as a one-line summary. Use **Edit setup** to change the repository path, base URL, and routes. Pick a mode card, then **Run scan**. A mode is disabled until its setting is filled in.
+
+After a scan, the asset insights show:
+
+- Total assets, with size on disk and size loaded in the browser.
+- Potentially unused files, with the size you could reclaim.
+- Large images (over 200 KB) and videos (over 1 MB). High means over 1 MB for an image or 5 MB for a video.
+- Failed requests: images, media, fonts, and stylesheets that did not load on a tested route, including files that are not in the repository.
+- Quality issues: low resolution (under 200 px), heavy JPEG compression, and dimensions over 2400 px. These are hints to check.
+- Duplicate files, slow downloads (1 second or more), and source references to files that do not exist.
+
+A runtime-only scan has no repository to compare with, so it lists the assets the routes requested and their failures. Static-only checks (unused, duplicates, dimensions) need a static or full scan.
+
 Potentially unused means the parser and the tested routes did not see the file. It is not a request to delete it. p95 is blank until an endpoint has at least 5 samples. p99 is blank until it has at least 20. A browser failure stays on the scan and does not appear as live SDK traffic.

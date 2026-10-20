@@ -173,7 +173,7 @@ def _asset_out(row: ScanAsset) -> dict:
         "duration_ms": row.duration_ms,
         "failure_type": row.failure_type,
         "signals": row.signals_json or {},
-        "asset_type": row.asset.asset_type if row.asset is not None else None,
+        "asset_type": row.asset.asset_type if row.asset is not None else (row.signals_json or {}).get("asset_type"),
         "file_size_bytes": row.asset.file_size_bytes if row.asset is not None else None,
         "content_hash": row.asset.content_hash if row.asset is not None else None,
     }

@@ -114,7 +114,17 @@ def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth
                     transfer_bytes=1200,
                     failure_type="timeout",
                     resource_type="image",
-                )
+                ),
+                observation_record(
+                    route="/checkout",
+                    method="GET",
+                    url_path="/media/banner.jpg",
+                    status_code=404,
+                    duration_ms=12,
+                    transfer_bytes=None,
+                    failure_type="http_error",
+                    resource_type="image",
+                ),
             ],
         }
 
@@ -155,6 +165,11 @@ def test_browser_scan_stores_failures_without_touching_live_metrics(client, auth
         loads = assets.json()["summary"]["load_performance"]
         assert loads[0]["file_path"] == "hero.png"
         assert loads[0]["failure_type"] == "timeout"
+        failed = {row["file_path"]: row for row in assets.json()["summary"]["insights"]["failed"]}
+        assert set(failed) == {"hero.png", "media/banner.jpg"}
+        assert failed["media/banner.jpg"]["status_code"] == 404
+        assert failed["media/banner.jpg"]["in_repository"] is False
+        assert failed["hero.png"]["in_repository"] is True
         pages = client.get(f"/scans/{scan_id}/pages", headers=auth["headers"])
         assert pages.json()["pages"][0]["metric_source"] == "lab"
         assert pages.json()["pages"][0]["lcp_ms"] is None

@@ -40,8 +40,13 @@ export default {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
         },
+        indeterminate: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(400%)" },
+        },
       },
       animation: {
+        indeterminate: "indeterminate 1.4s ease-in-out infinite",
         pulseRing: "pulseRing 1.8s ease-out infinite",
         shimmer: "shimmer 1.4s ease-in-out infinite",
       },

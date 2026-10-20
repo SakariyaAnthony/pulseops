@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Panel } from "@/components/shared/panel";
@@ -9,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScanApisQuery, useScanAssetsQuery, useScanPagesQuery, useScanQuery } from "@/hooks/queries";
 import type { ScanEndpoint, ScanPage } from "@/lib/api/types";
+import { useScope } from "@/hooks/use-scope";
 import { api } from "@/lib/api/client";
+import { withScope } from "@/lib/scope";
 import { AssetReport } from "@/features/scans/asset-report";
+import { ScanHistoryPage } from "@/features/scans/scan-history-page";
 
 function bytes(value: number | null) {
   if (value == null) return "—";
@@ -23,8 +27,34 @@ function ms(value: number | null) {
   return value == null ? "—" : `${Math.round(value)} ms`;
 }
 
+const SCAN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function ScanDetailPage() {
   const { id = "" } = useParams();
+  // "history" is a page, not a scan. Keep it from reaching the API if a route list ever sends it here.
+  if (id === "history") return <ScanHistoryPage />;
+  if (!SCAN_ID.test(id)) return <ScanNotFound />;
+  return <ScanDetail id={id} />;
+}
+
+function ScanNotFound() {
+  const scope = useScope();
+  return (
+    <div className="space-y-3">
+      <Link
+        to={withScope("/scans", scope)}
+        className="inline-flex items-center gap-1.5 text-xs text-dim hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        Asset Intelligence Scanner
+      </Link>
+      <p className="text-sm text-dim">Scan not found.</p>
+    </div>
+  );
+}
+
+function ScanDetail({ id }: { id: string }) {
+  const scope = useScope();
   const query = useScanQuery(id);
   const client = useQueryClient();
   const finished = query.data != null && query.data.status !== "queued" && query.data.status !== "running";
@@ -50,6 +80,13 @@ export function ScanDetailPage() {
       {(scan) =>
         scan ? (
           <div className="space-y-4">
+            <Link
+              to={withScope("/scans", scope)}
+              className="inline-flex items-center gap-1.5 text-xs text-dim hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+              Asset Intelligence Scanner
+            </Link>
             <PageHeader
               eyebrow={scan.mode}
               title={scan.status}
@@ -60,7 +97,7 @@ export function ScanDetailPage() {
                 Cancel
               </Button>
             ) : null}
-            <AssetReport summary={assets.data?.summary ?? null} ready={finished && !assets.isLoading} />
+            <AssetReport summary={assets.data?.summary ?? null} ready={finished && !assets.isLoading} mode={scan.mode} />
             <Panel title="API" description="Percentiles come from this scan's samples. p95 needs at least 5 samples and p99 needs at least 20.">
               <ApiTable rows={apis.data?.endpoints ?? []} empty={finished && (apis.data?.endpoints.length ?? 0) === 0} />
             </Panel>

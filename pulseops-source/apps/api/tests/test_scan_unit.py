@@ -133,3 +133,79 @@ def test_image_signals_python_references_and_dimensions(tmp_path: Path):
     assert any("srcset" in note for note in summary["optimization"][0]["notes"])
     assert any("200 KB" in note for note in summary["optimization"][0]["notes"])
     assert summary["lazy_loading"][0]["file_path"] == "src/photo.png"
+
+
+def _asset(path, kind="image", **extra):
+    base = {
+        "file_path": path,
+        "asset_type": kind,
+        "classification": "referenced_and_observed",
+        "file_size_bytes": None,
+        "transfer_bytes": None,
+        "duration_ms": None,
+        "failure_type": None,
+        "duplicate_of": None,
+        "content_hash": None,
+        "references": [],
+        "routes": [],
+        "signals": {},
+    }
+    base.update(extra)
+    return base
+
+
+def test_insights_flag_large_low_quality_failed_and_unused_assets():
+    summary = summarize(
+        [
+            _asset("src/hero.png", file_size_bytes=1_500_000, signals={"width": 3000, "height": 2000}),
+            _asset("src/banner.jpg", file_size_bytes=250_000, signals={"width": 2000, "height": 1000}),
+            _asset("src/crushed.jpg", file_size_bytes=30_000, signals={"width": 1200, "height": 800}),
+            _asset("src/tiny.png", file_size_bytes=900, signals={"width": 64, "height": 48}),
+            _asset("src/intro.mp4", "video", file_size_bytes=6_000_000),
+            _asset("src/clip.mp4", "video", file_size_bytes=1_500_000),
+            _asset("src/small.png", file_size_bytes=50_000, signals={"width": 800, "height": 600}),
+            _asset(
+                "src/gone.png",
+                classification="observed_without_source_match",
+                failure_type="http_error",
+                routes=["/shop"],
+                signals={"status_code": 404, "runtime_only": True, "asset_type": "image"},
+            ),
+            _asset("src/old.png", classification="potentially_unused", file_size_bytes=40_000),
+            _asset("src/a.png", file_size_bytes=10, content_hash="x", duplicate_of="src/b.png"),
+            _asset("src/b.png", file_size_bytes=10, content_hash="x", duplicate_of="src/a.png"),
+            _asset("src/missing.png", classification="missing_reference", references=["src/App.tsx"]),
+        ]
+    )
+    insights = summary["insights"]
+    assert insights["total_assets"] == 11
+    assert insights["by_type"]["video"]["count"] == 2
+    large = {row["file_path"]: row for row in insights["large"]}
+    assert set(large) == {"src/hero.png", "src/banner.jpg", "src/intro.mp4", "src/clip.mp4"}
+    assert large["src/hero.png"]["severity"] == "high"
+    assert large["src/banner.jpg"]["severity"] == "medium"
+    assert large["src/intro.mp4"]["severity"] == "high"
+    assert large["src/clip.mp4"]["severity"] == "medium"
+    assert insights["large"][0]["file_path"] == "src/intro.mp4"
+    quality = {row["file_path"]: row["kinds"] for row in insights["quality"]}
+    assert quality["src/tiny.png"] == ["low_resolution"]
+    assert quality["src/crushed.jpg"] == ["heavy_compression"]
+    assert quality["src/hero.png"] == ["oversized"]
+    assert "src/small.png" not in quality
+    assert [row["file_path"] for row in insights["failed"]] == ["src/gone.png"]
+    assert insights["failed"][0]["status_code"] == 404
+    assert "404" in insights["failed"][0]["notes"][0]
+    assert insights["failed"][0]["in_repository"] is False
+    assert [row["file_path"] for row in insights["unused"]] == ["src/old.png"]
+    assert insights["unused_bytes"] == 40_000
+    assert insights["duplicate_bytes"] == 10
+    assert [row["file_path"] for row in insights["missing"]] == ["src/missing.png"]
+    assert summary["potentially_unused"] == 1
+    assert summary["missing_reference"] == 1
+
+
+def test_insights_are_empty_without_assets():
+    insights = summarize([])["insights"]
+    assert insights["total_assets"] == 0
+    assert insights["large"] == []
+    assert insights["unused_bytes"] == 0

@@ -12,7 +12,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import ApiObservation, Asset, AssetUsage, PageResult, Project, ScanAsset, ScanRun
 from app.scan.browser import collect_routes
-from app.scan.static import detect_framework, inventory, parse_references
+from app.scan.static import asset_type, detect_framework, inventory, parse_references
 
 logger = logging.getLogger("pulseops.scan")
 
@@ -239,6 +239,8 @@ def _persist(scan_id, files, references, uncertain, pages, observations, seen_as
             elif duplicate_of:
                 explanation = f"{explanation} Same contents as {duplicate_of}."
             timing = observed.get(path, {})
+            if timing.get("status_code") is not None:
+                signals_by_path.setdefault(path, {})["status_code"] = timing["status_code"]
             db.add(
                 ScanAsset(
                     scan_id=scan.id,
@@ -254,6 +256,36 @@ def _persist(scan_id, files, references, uncertain, pages, observations, seen_as
                     duration_ms=timing.get("duration_ms"),
                     failure_type=timing.get("failure_type"),
                     signals_json=signals_by_path.get(path) or {},
+                )
+            )
+        static_ran = bool(files) or bool(references)
+        for path, item in sorted(_runtime_only(by_path, names, seen_assets).items()):
+            kind = _runtime_asset_type(path, item["resource_type"])
+            signals = {"asset_type": kind, "runtime_only": True}
+            if item["status_code"] is not None:
+                signals["status_code"] = item["status_code"]
+            if item["resource_type"]:
+                signals["resource_type"] = item["resource_type"]
+            if static_ran:
+                explanation = (
+                    "A tested route requested this file, and it matches no file in the repository. "
+                    "It may be a hosted, generated, or hashed file."
+                )
+            else:
+                explanation = "A tested route requested this file. No repository scan was run, so there is no source comparison."
+            db.add(
+                ScanAsset(
+                    scan_id=scan.id,
+                    file_path=path,
+                    classification="observed_without_source_match",
+                    explanation=explanation,
+                    confidence="low",
+                    references_json=[],
+                    routes_json=sorted(item["routes"]),
+                    transfer_bytes=item["transfer_bytes"],
+                    duration_ms=item["duration_ms"],
+                    failure_type=item["failure_type"],
+                    signals_json=signals,
                 )
             )
         for page in pages:
@@ -297,19 +329,66 @@ def _class_for(referenced: bool, observed: bool, browser_ran: bool) -> tuple[str
     )
 
 
+def _matching_files(item: dict, by_path: dict[str, Asset], names: Counter) -> list[str]:
+    url_path = item["endpoint_template"].lstrip("/")
+    found: list[str] = []
+    for file_path in by_path:
+        base = Path(file_path).name
+        path_match = url_path == file_path or url_path.endswith("/" + file_path) or file_path.endswith("/" + url_path)
+        name_match = names[base] == 1 and (url_path == base or url_path.endswith("/" + base))
+        if path_match or name_match:
+            found.append(file_path)
+    return found
+
+
+_RESOURCE_TYPES = {"image": "image", "media": "video", "font": "font", "stylesheet": "css"}
+
+
+def _runtime_only(by_path: dict[str, Asset], names: Counter, seen_assets: list[dict]) -> dict[str, dict]:
+    """Assets a route requested that match no repository file, merged by URL path."""
+    merged: dict[str, dict] = {}
+    for item in seen_assets:
+        if _matching_files(item, by_path, names):
+            continue
+        path = item["endpoint_template"].lstrip("/") or item["endpoint_template"]
+        slot = merged.setdefault(
+            path,
+            {
+                "routes": set(),
+                "transfer_bytes": None,
+                "duration_ms": None,
+                "failure_type": None,
+                "status_code": None,
+                "resource_type": item.get("resource_type"),
+            },
+        )
+        slot["routes"].add(item["route"])
+        if item.get("transfer_bytes") is not None:
+            slot["transfer_bytes"] = max(int(item["transfer_bytes"]), slot["transfer_bytes"] or 0)
+        if item.get("duration_ms") is not None:
+            slot["duration_ms"] = max(float(item["duration_ms"]), slot["duration_ms"] or 0.0)
+        if item.get("failure_type") and not slot["failure_type"]:
+            slot["failure_type"] = item["failure_type"]
+            slot["status_code"] = item.get("status_code")
+        elif slot["status_code"] is None:
+            slot["status_code"] = item.get("status_code")
+    return merged
+
+
+def _runtime_asset_type(path: str, resource_type: str | None) -> str:
+    kind = asset_type(Path(path))
+    if kind == "other" and resource_type in _RESOURCE_TYPES:
+        return _RESOURCE_TYPES[resource_type]
+    return kind
+
+
 def _observed_paths(by_path: dict[str, Asset], names: Counter, seen_assets: list[dict]) -> dict[str, dict]:
     matched: dict[str, dict] = {}
     for item in seen_assets:
-        url_path = item["endpoint_template"].lstrip("/")
-        for file_path in by_path:
-            base = Path(file_path).name
-            path_match = url_path == file_path or url_path.endswith("/" + file_path) or file_path.endswith("/" + url_path)
-            name_match = names[base] == 1 and (url_path == base or url_path.endswith("/" + base))
-            if not path_match and not name_match:
-                continue
+        for file_path in _matching_files(item, by_path, names):
             slot = matched.setdefault(
                 file_path,
-                {"routes": set(), "transfer_bytes": None, "duration_ms": None, "failure_type": None},
+                {"routes": set(), "transfer_bytes": None, "duration_ms": None, "failure_type": None, "status_code": None},
             )
             slot["routes"].add(item["route"])
             if item.get("transfer_bytes") is not None:
@@ -318,6 +397,7 @@ def _observed_paths(by_path: dict[str, Asset], names: Counter, seen_assets: list
                 slot["duration_ms"] = float(item["duration_ms"])
             if item.get("failure_type"):
                 slot["failure_type"] = item["failure_type"]
+                slot["status_code"] = item.get("status_code")
     return matched
 
 

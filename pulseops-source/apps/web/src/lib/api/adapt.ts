@@ -21,6 +21,8 @@ import type {
   Series,
   ServiceDetail,
   ServiceSummary,
+  AssetInsights,
+  AssetIssue,
   AssetSummary,
   ScanAssetRow,
   ScanEndpoint,
@@ -575,6 +577,8 @@ export function adaptScans(value: unknown): ScanRun[] {
     const scan = asRecord(item);
     if (!scan || typeof scan.id !== "string") return [];
     const progress = asRecord(scan.progress) ?? {};
+    const config = asRecord(scan.config) ?? {};
+    const viewport = asRecord(config.viewport) ?? {};
     return [
       {
         id: scan.id,
@@ -584,7 +588,17 @@ export function adaptScans(value: unknown): ScanRun[] {
         progress: { stage: text(progress.stage), message: text(progress.message) },
         errorSummary: text(scan.error_summary),
         createdAt: text(scan.created_at),
+        startedAt: text(scan.started_at),
         completedAt: text(scan.completed_at),
+        config: {
+          repositoryPath: text(config.repository_path),
+          baseUrl: text(config.base_url),
+          framework: text(config.framework),
+          routes: listOf(config.routes).map((route) => String(route)),
+          viewportWidth: optionalNum(viewport.width),
+          viewportHeight: optionalNum(viewport.height),
+          timeoutMs: optionalNum(config.timeout_ms),
+        },
       },
     ];
   });
@@ -594,8 +608,83 @@ export function adaptScan(value: unknown): ScanRun | null {
   return adaptScans({ scans: [value] })[0] ?? null;
 }
 
+export function emptyAssetInsights(): AssetInsights {
+  return {
+    totalAssets: 0,
+    byType: {},
+    unusedBytes: 0,
+    duplicateBytes: 0,
+    largeBytes: 0,
+    large: [],
+    quality: [],
+    failed: [],
+    slow: [],
+    unused: [],
+    duplicates: [],
+    missing: [],
+  };
+}
+
+function adaptIssues(value: unknown): AssetIssue[] {
+  return listOf(value).flatMap((item) => {
+    const row = asRecord(item);
+    if (!row || typeof row.file_path !== "string") return [];
+    return [
+      {
+        filePath: row.file_path,
+        assetType: text(row.asset_type) || "other",
+        sizeBytes: optionalNum(row.size_bytes),
+        transferBytes: optionalNum(row.transfer_bytes),
+        durationMs: optionalNum(row.duration_ms),
+        width: optionalNum(row.width),
+        height: optionalNum(row.height),
+        routes: listOf(row.routes).map((entry) => String(entry)),
+        references: listOf(row.references).map((entry) => String(entry)),
+        severity: text(row.severity),
+        notes: listOf(row.notes).map((entry) => String(entry)).filter(Boolean),
+        kinds: listOf(row.kinds).map((entry) => String(entry)),
+        failureType: text(row.failure_type),
+        statusCode: optionalNum(row.status_code),
+        duplicateOf: text(row.duplicate_of),
+        confidence: text(row.confidence),
+        inRepository: row.in_repository !== false,
+      },
+    ];
+  });
+}
+
+function adaptAssetInsights(value: unknown): AssetInsights {
+  const record = asRecord(value);
+  const insights = emptyAssetInsights();
+  if (!record) return insights;
+  insights.totalAssets = optionalNum(record.total_assets) ?? 0;
+  const byType = asRecord(record.by_type);
+  if (byType) {
+    for (const [kind, raw] of Object.entries(byType)) {
+      const slot = asRecord(raw);
+      insights.byType[kind] = {
+        count: optionalNum(slot?.count) ?? 0,
+        sizeBytes: optionalNum(slot?.size_bytes) ?? 0,
+        transferBytes: optionalNum(slot?.transfer_bytes) ?? 0,
+      };
+    }
+  }
+  insights.unusedBytes = optionalNum(record.unused_bytes) ?? 0;
+  insights.duplicateBytes = optionalNum(record.duplicate_bytes) ?? 0;
+  insights.largeBytes = optionalNum(record.large_bytes) ?? 0;
+  insights.large = adaptIssues(record.large);
+  insights.quality = adaptIssues(record.quality);
+  insights.failed = adaptIssues(record.failed);
+  insights.slow = adaptIssues(record.slow);
+  insights.unused = adaptIssues(record.unused);
+  insights.duplicates = adaptIssues(record.duplicates);
+  insights.missing = adaptIssues(record.missing);
+  return insights;
+}
+
 export function emptyAssetSummary(): AssetSummary {
   return {
+    insights: emptyAssetInsights(),
     counts: {},
     referenced: 0,
     potentiallyUnused: 0,
@@ -620,6 +709,7 @@ export function adaptScanAssets(value: unknown): { summary: AssetSummary; assets
     summary.counts = counts
       ? Object.fromEntries(Object.entries(counts).map(([key, count]) => [key, optionalNum(count) ?? 0]))
       : {};
+    summary.insights = adaptAssetInsights(summaryRecord.insights);
     summary.referenced = optionalNum(summaryRecord.referenced) ?? 0;
     summary.potentiallyUnused = optionalNum(summaryRecord.potentially_unused) ?? 0;
     summary.missingReference = optionalNum(summaryRecord.missing_reference) ?? 0;
