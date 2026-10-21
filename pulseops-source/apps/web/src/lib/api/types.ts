@@ -61,6 +61,8 @@ export type ServiceSummary = {
   version: string;
   language: string;
   spark: number[];
+  /** Set when the service is built from a runtime scan instead of live SDK traffic. */
+  capture?: { at: string; calls: number; routes: number; baseUrl: string };
 };
 
 export type EndpointRow = {
@@ -69,12 +71,15 @@ export type EndpointRow = {
   route: string;
   service: string;
   calls: number;
+  /** Timings are NaN when a capture has too few samples to measure them. The formatters show a dash. */
   avgMs: number;
   p95Ms: number;
   p99Ms: number;
   errorRate: number;
   apdex: number;
   trend: number[];
+  /** True for rows built from a runtime scan instead of live SDK traffic. */
+  captured?: boolean;
 };
 
 export type HistogramBucket = { label: string; count: number };
@@ -204,7 +209,11 @@ export type ResourcesPayload = {
   hosts: HostSnapshot[];
   aggregate: ResourceBundle;
   byHost: Record<string, ResourceBundle>;
-  heatmap: { hosts: string[]; times: string[]; values: [number, number, number][] };
+  heatmap: {
+    hosts: string[];
+    times: string[];
+    values: [number, number, number][];
+  };
 };
 
 export type ScanSetup = {
@@ -278,7 +287,10 @@ export type AssetIssue = {
 
 export type AssetInsights = {
   totalAssets: number;
-  byType: Record<string, { count: number; sizeBytes: number; transferBytes: number }>;
+  byType: Record<
+    string,
+    { count: number; sizeBytes: number; transferBytes: number }
+  >;
   unusedBytes: number;
   duplicateBytes: number;
   largeBytes: number;
@@ -303,7 +315,12 @@ export type AssetSummary = {
   duplicates: { filePath: string; duplicateOf: string }[];
   optimization: { filePath: string; notes: string[] }[];
   lazyLoading: { filePath: string; note: string }[];
-  loadPerformance: { filePath: string; durationMs: number | null; transferBytes: number | null; failureType: string }[];
+  loadPerformance: {
+    filePath: string;
+    durationMs: number | null;
+    transferBytes: number | null;
+    failureType: string;
+  }[];
   locations: { filePath: string; references: string[]; routes: string[] }[];
 };
 
@@ -313,9 +330,18 @@ export type ScanEndpoint = {
   count: number;
   sampleCount: number;
   errorRate: number | null;
+  avgMs: number | null;
+  apdex: number | null;
   medianMs: number | null;
   p95Ms: number | null;
   p99Ms: number | null;
+};
+
+/** API performance built from the latest runtime scan of the running app. */
+export type ApiCapture = {
+  scan: ScanRun;
+  endpoints: EndpointRow[];
+  service: ServiceSummary;
 };
 
 export type ScanRequest = {

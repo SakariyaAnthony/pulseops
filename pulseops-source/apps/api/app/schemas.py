@@ -37,6 +37,7 @@ class RefreshIn(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     slug: str | None = Field(default=None, max_length=80)
+    scan_config: "ScanConfigIn | None" = None
 
 
 class AlertRuleIn(BaseModel):
@@ -118,6 +119,54 @@ class ErrorsIn(BaseModel):
     errors: list[ErrorPoint] = Field(default_factory=list, max_length=5000)
 
 
+def clean_route(value: str) -> str:
+    """Routes carry a path only. Query strings and fragments can hold user data, so they are dropped here."""
+    path = str(value).split("?", 1)[0].split("#", 1)[0].strip()
+    return path or "/"
+
+
+VitalRoute = Annotated[str, BeforeValidator(clean_route), Field(min_length=1, max_length=300)]
+
+
+class VitalPoint(BaseModel):
+    time: FlexibleTime = None
+    env: str = Field(default="prod", max_length=64)
+    service: str = Field(min_length=1, max_length=120)
+    route: VitalRoute
+    nav_type: Literal["first_load", "spa_navigation"] = "first_load"
+    device: Literal["mobile", "tablet", "desktop"] = "desktop"
+    metric: Literal["LCP", "INP", "CLS", "FCP", "TTFB"]
+    value: float = Field(ge=0, le=3_600_000)
+    page_view_id: str | None = Field(default=None, max_length=64)
+    connection: str | None = Field(default=None, max_length=16)
+    version: str | None = Field(default=None, max_length=64)
+
+
+class LoadPoint(BaseModel):
+    time: FlexibleTime = None
+    env: str = Field(default="prod", max_length=64)
+    service: str = Field(min_length=1, max_length=120)
+    route: VitalRoute
+    nav_type: Literal["first_load", "spa_navigation"] = "first_load"
+    device: Literal["mobile", "tablet", "desktop"] = "desktop"
+    ttfb_ms: float | None = Field(default=None, ge=0, le=3_600_000)
+    dom_content_loaded_ms: float | None = Field(default=None, ge=0, le=3_600_000)
+    load_ms: float | None = Field(default=None, ge=0, le=3_600_000)
+    transfer_bytes: int | None = Field(default=None, ge=0)
+    resource_count: int | None = Field(default=None, ge=0)
+    js_bytes: int | None = Field(default=None, ge=0)
+    long_task_count: int | None = Field(default=None, ge=0)
+    long_task_ms: float | None = Field(default=None, ge=0)
+    tbt_ms: float | None = Field(default=None, ge=0)
+    page_view_id: str | None = Field(default=None, max_length=64)
+    version: str | None = Field(default=None, max_length=64)
+
+
+class VitalsIn(BaseModel):
+    vitals: list[VitalPoint] = Field(default_factory=list, max_length=5000)
+    loads: list[LoadPoint] = Field(default_factory=list, max_length=5000)
+
+
 class EventPoint(BaseModel):
     type: str = Field(min_length=1, max_length=64)
     time: FlexibleTime = None
@@ -146,5 +195,8 @@ class ScanConfigIn(BaseModel):
     start_command: str | None = Field(default=None, max_length=300)
 
 
+ProjectCreate.model_rebuild()
+
+
 class ScanCreateIn(BaseModel):
-    mode: Literal["static", "browser", "full"] = "full"
+    mode: Literal["static", "browser", "full", "vitals"] = "full"

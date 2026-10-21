@@ -36,3 +36,18 @@ METRIC_COLS = (
     "tolerating",
     *HIST_COLS,
 )
+
+# Core Web Vitals thresholds: (good up to, poor above). Values in ms, except CLS (unitless).
+VITAL_THRESHOLDS: dict[str, tuple[float, float]] = {
+    "LCP": (2500, 4000),
+    "INP": (200, 500),
+    "CLS": (0.1, 0.25),
+    "FCP": (1800, 3000),
+    "TTFB": (800, 1800),
+}
+VITAL_METRICS = tuple(VITAL_THRESHOLDS)
+CORE_VITALS = ("LCP", "INP", "CLS")
+VITAL_DEVICES = ("mobile", "tablet", "desktop")
+VITAL_NAV_TYPES = ("first_load", "spa_navigation")
+# A route needs this many page views before a 75th percentile is shown.
+VITALS_MIN_SAMPLES = 20

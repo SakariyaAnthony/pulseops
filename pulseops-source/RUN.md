@@ -76,7 +76,7 @@ Ingest key for the demo project: `po_live_shop_api_demo_key`.
 
 ## 5. Scan a React app
 
-Follow [SCAN.md](SCAN.md). The dashboard has no New project button. That guide creates the project with `curl`, copies the browser snippet into the React app, and shows where the report appears.
+Follow [SCAN.md](SCAN.md). For page speed, the **Web Vitals** page shows real-user Core Web Vitals and on-demand Lighthouse audits (see SCAN.md section 8; Lighthouse needs `cd apps/api/tools/lighthouse && npm install` once). You can add a project from the dashboard with **+ New project** in the top bar (or **Edit setup** on the Assets page). One project holds the asset scan and API performance: capture the app's API calls from the API page, or connect live traffic from Settings.
 
 ## Stop
 

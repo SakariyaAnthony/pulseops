@@ -12,7 +12,8 @@ from app.deps import get_api_key
 from app.models import ApiKey, Deploy
 from app.queries import build_snapshot
 from app.redis_bus import enforce_rate_limit, publish
-from app.schemas import ErrorsIn, EventsIn, MetricsIn
+from app.schemas import ErrorsIn, EventsIn, MetricsIn, VitalsIn
+from app.vitals import rate
 
 logger = logging.getLogger("pulseops.ingest")
 router = APIRouter(prefix="/ingest/v1", tags=["ingest"])
@@ -123,6 +124,58 @@ def ingest_errors(body: ErrorsIn, api_key: ApiKey = Depends(get_api_key), db: Se
         )
     db.commit()
     return JSONResponse(status_code=202, content={"accepted": len(body.errors)})
+
+
+@router.post("/vitals", status_code=202)
+def ingest_vitals(body: VitalsIn, api_key: ApiKey = Depends(get_api_key), db: Session = Depends(get_db)):
+    """Field data: one row per metric per page view, plus one load record per page view."""
+    enforce_rate_limit(api_key.id)
+    if body.vitals:
+        db.execute(
+            text(
+                """
+                INSERT INTO web_vitals (
+                    time, project_id, env, service, route, nav_type, device, metric, value, rating,
+                    page_view_id, connection, version
+                ) VALUES (
+                    :time, :project_id, :env, :service, :route, :nav_type, :device, :metric, :value, :rating,
+                    :page_view_id, :connection, :version
+                )
+                """
+            ),
+            [
+                {
+                    "time": _when(point.time),
+                    "project_id": api_key.project_id,
+                    **point.model_dump(exclude={"time"}),
+                    # The rating is computed here so it always matches the thresholds the dashboard shows.
+                    "rating": rate(point.metric, point.value),
+                }
+                for point in body.vitals
+            ],
+        )
+    if body.loads:
+        db.execute(
+            text(
+                """
+                INSERT INTO page_loads (
+                    time, project_id, env, service, route, nav_type, device, ttfb_ms, dom_content_loaded_ms,
+                    load_ms, transfer_bytes, resource_count, js_bytes, long_task_count, long_task_ms, tbt_ms,
+                    page_view_id, version
+                ) VALUES (
+                    :time, :project_id, :env, :service, :route, :nav_type, :device, :ttfb_ms,
+                    :dom_content_loaded_ms, :load_ms, :transfer_bytes, :resource_count, :js_bytes,
+                    :long_task_count, :long_task_ms, :tbt_ms, :page_view_id, :version
+                )
+                """
+            ),
+            [
+                {"time": _when(point.time), "project_id": api_key.project_id, **point.model_dump(exclude={"time"})}
+                for point in body.loads
+            ],
+        )
+    db.commit()
+    return JSONResponse(status_code=202, content={"accepted": len(body.vitals) + len(body.loads)})
 
 
 @router.post("/events", status_code=202)

@@ -6,8 +6,13 @@ import { CommandPalette } from "@/components/layout/command-palette";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { PageSkeleton } from "@/components/shared/states";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { useIncidentsQuery } from "@/hooks/queries";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIncidentsQuery, useProjectsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { probeApi } from "@/lib/api/client";
 import { TIME_RANGES } from "@/lib/api/types";
@@ -30,16 +35,35 @@ export function AppShell() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   const incidents = useIncidentsQuery();
-  const firing = (incidents.data ?? []).filter((incident) => incident.status === "firing").length;
+  const projects = useProjectsQuery();
+  const firing = (incidents.data ?? []).filter(
+    (incident) => incident.status === "firing",
+  ).length;
 
   useEffect(() => {
-    if (!params.get("range") || !params.get("project") || !params.get("env")) update({});
+    if (!params.get("range") || !params.get("project") || !params.get("env"))
+      update({});
   }, [params, update]);
+
+  useEffect(() => {
+    const list = projects.data;
+    if (
+      !projects.isSuccess ||
+      !list?.length ||
+      list.some((item) => item.slug === scope.project)
+    )
+      return;
+    update({ project: list[0].slug });
+  }, [projects.data, projects.isSuccess, scope.project, update]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const typing =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen(!commandOpen);
@@ -81,7 +105,10 @@ export function AppShell() {
   return (
     <>
       <div className="aurora" aria-hidden />
-      <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-elevated focus:px-3 focus:py-2">
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-elevated focus:px-3 focus:py-2"
+      >
         Skip to content
       </a>
       <div className="relative z-10 flex min-h-screen" data-density={density}>
@@ -107,7 +134,9 @@ export function AppShell() {
       <Sheet open={menu} onOpenChange={setMenu}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SheetDescription className="sr-only">Primary navigation</SheetDescription>
+          <SheetDescription className="sr-only">
+            Primary navigation
+          </SheetDescription>
           <Sidebar alertCount={firing} onNavigate={() => setMenu(false)} />
         </SheetContent>
       </Sheet>

@@ -12,6 +12,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import ApiObservation, Asset, AssetUsage, PageResult, Project, ScanAsset, ScanRun
 from app.scan.browser import collect_routes
+from app.scan.lighthouse import collect_lighthouse
 from app.scan.static import asset_type, detect_framework, inventory, parse_references
 
 logger = logging.getLogger("pulseops.scan")
@@ -81,6 +82,9 @@ def _execute(scan_id: str) -> None:
             return
         config = dict(scan.config_json or {})
         mode = scan.mode
+    if mode == "vitals":
+        _execute_vitals(scan_id, config)
+        return
     browser_ran = mode in {"browser", "full"}
     if not _progress(scan_id, "start", "Scan started"):
         return
@@ -140,6 +144,42 @@ def _execute(scan_id: str) -> None:
         return
     if route_failures:
         _finish(scan_id, "partial", f"{len(route_failures)} route(s) failed")
+        return
+    _finish(scan_id, "completed", None)
+
+
+def _execute_vitals(scan_id: str, config: dict) -> None:
+    """Lighthouse lab audit: every route, mobile and desktop. Stored as lab data only."""
+    if not config.get("base_url"):
+        _finish(scan_id, "failed", "Add a localhost base URL before a Web Vitals audit")
+        return
+    if not _progress(scan_id, "lighthouse", "Starting Lighthouse"):
+        _finish(scan_id, "cancelled", None)
+        return
+    pages = collect_lighthouse(
+        config["base_url"],
+        list(config.get("routes") or ["/"]),
+        int(config.get("timeout_ms") or 15000),
+        lambda: _cancelled(scan_id),
+        lambda label: _progress(scan_id, "lighthouse", f"Auditing {label}"),
+    )
+    if _cancelled(scan_id):
+        _finish(scan_id, "cancelled", None)
+        return
+    with SessionLocal() as db:
+        scan = db.get(ScanRun, UUID(scan_id))
+        if scan is None or scan.status == "cancelled":
+            return
+        for page in pages:
+            db.add(PageResult(scan_id=scan.id, **page))
+        db.commit()
+    failures = [page for page in pages if page["status"] != "ok"]
+    if not pages or len(failures) == len(pages):
+        detail = failures[0]["error_summary"] if failures else "No routes were audited"
+        _finish(scan_id, "failed", detail)
+        return
+    if failures:
+        _finish(scan_id, "partial", f"{len(failures)} audit(s) failed")
         return
     _finish(scan_id, "completed", None)
 

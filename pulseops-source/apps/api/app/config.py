@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 6000
     scan_roots: str = Field(default="", validation_alias="PULSEOPS_SCAN_ROOTS")
     scan_inline: bool = Field(default=False, validation_alias="PULSEOPS_SCAN_INLINE")
+    lighthouse_bin: str = Field(default="", validation_alias="PULSEOPS_LIGHTHOUSE_BIN")
+    chrome_path: str = Field(default="", validation_alias="PULSEOPS_CHROME_PATH")
 
 
 settings = Settings()

@@ -24,7 +24,9 @@ export function InlineError({
       </div>
       <p className="max-w-xl text-sm text-dim">{message}</p>
       <Button variant="secondary" onClick={onRetry} disabled={pending}>
-        <RefreshCw className={pending ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+        <RefreshCw
+          className={pending ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
+        />
         Retry
       </Button>
     </div>
@@ -43,7 +45,10 @@ export function EmptyState({
   return (
     <div className="glass shadow-card rounded-xl2 px-6 py-10">
       <div className="mx-auto max-w-xl">
-        <div className="mb-4 h-10 w-10 rounded-xl2 bg-violet/15 shadow-glow" aria-hidden />
+        <div
+          className="mb-4 h-11 w-11 rounded-xl2 bg-gradient-to-br from-violet to-cyan/70 opacity-90 shadow-glow"
+          aria-hidden
+        />
         <h2 className="text-lg font-semibold text-ink">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-dim">{body}</p>
         <SdkSnippet />
@@ -66,7 +71,9 @@ PulseOps.init({
   return (
     <div className="mt-5 overflow-hidden rounded-xl2 border border-line bg-base/80">
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <span className="text-[11px] uppercase tracking-wide text-mute">Install the SDK</span>
+        <span className="text-[11px] uppercase tracking-wide text-mute">
+          Install the SDK
+        </span>
         <button
           type="button"
           className="inline-flex items-center gap-1 text-xs text-dim hover:text-ink"
@@ -79,7 +86,9 @@ PulseOps.init({
           Copy
         </button>
       </div>
-      <pre className="num overflow-x-auto p-3 text-xs leading-5 text-dim">{snippet}</pre>
+      <pre className="num overflow-x-auto p-3 text-xs leading-5 text-dim">
+        {snippet}
+      </pre>
     </div>
   );
 }
@@ -99,8 +108,18 @@ export function QueryGate<T>({
 }) {
   if (query.isLoading) return skeleton;
   if (query.isError) {
-    const message = query.error instanceof Error ? query.error.message : "The request failed.";
-    return <InlineError title="This view didn't load" message={message} onRetry={() => void query.refetch()} pending={query.isRefetching} />;
+    const message =
+      query.error instanceof Error
+        ? query.error.message
+        : "The request failed.";
+    return (
+      <InlineError
+        title="This view didn't load"
+        message={message}
+        onRetry={() => void query.refetch()}
+        pending={query.isRefetching}
+      />
+    );
   }
   if (!query.data) return skeleton;
   if (isEmpty?.(query.data)) return empty ?? null;

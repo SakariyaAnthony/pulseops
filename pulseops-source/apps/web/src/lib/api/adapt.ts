@@ -25,6 +25,7 @@ import type {
   AssetIssue,
   AssetSummary,
   ScanAssetRow,
+  ApiCapture,
   ScanEndpoint,
   ScanPage,
   ScanRequest,
@@ -39,7 +40,9 @@ import type {
 const MEM_CRITICAL_MB = 1800;
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 export function num(value: unknown): number {
@@ -56,7 +59,9 @@ function text(value: unknown): string {
 
 function sparkOf(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  return value.map((point) => (Array.isArray(point) ? num(point[1]) : num(point)));
+  return value.map((point) =>
+    Array.isArray(point) ? num(point[1]) : num(point),
+  );
 }
 
 function pointsOf(value: unknown): Point[] {
@@ -87,11 +92,16 @@ function deploysOf(value: unknown) {
   });
 }
 
-function timeseriesOf(value: unknown, metric: string, rename?: string): Timeseries {
+function timeseriesOf(
+  value: unknown,
+  metric: string,
+  rename?: string,
+): Timeseries {
   const record = asRecord(value);
   return {
     metric,
-    resolution: typeof record?.resolution === "string" ? record.resolution : "1m",
+    resolution:
+      typeof record?.resolution === "string" ? record.resolution : "1m",
     series: seriesOf(value, rename),
     deploys: deploysOf(value),
   };
@@ -118,7 +128,9 @@ function envOf(value: unknown): EnvName {
 }
 
 function operatorOf(value: unknown): AlertRule["operator"] {
-  return value === "lt" || value === "lte" || value === "below" ? "below" : "above";
+  return value === "lt" || value === "lte" || value === "below"
+    ? "below"
+    : "above";
 }
 
 function memPercent(mb: number): number {
@@ -130,7 +142,13 @@ function bytesToMb(bps: number): number {
   return bps / (1024 * 1024);
 }
 
-function liveKpi(id: string, label: string, value: unknown, intent: Kpi["intent"], unit: Kpi["unit"]): Kpi {
+function liveKpi(
+  id: string,
+  label: string,
+  value: unknown,
+  intent: Kpi["intent"],
+  unit: Kpi["unit"],
+): Kpi {
   const record = asRecord(value);
   return {
     id,
@@ -155,12 +173,27 @@ function scaleMemory(series: Timeseries): Timeseries {
 
 export function adaptProjects(value: unknown): Project[] | null {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.projects) ? record.projects : null;
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.projects)
+      ? record.projects
+      : null;
   if (!list) return null;
   return list.flatMap((item) => {
     const project = asRecord(item);
-    if (!project || typeof project.slug !== "string" || typeof project.name !== "string") return [];
-    return [{ id: text(project.id) || project.slug, name: project.name, slug: project.slug }];
+    if (
+      !project ||
+      typeof project.slug !== "string" ||
+      typeof project.name !== "string"
+    )
+      return [];
+    return [
+      {
+        id: text(project.id) || project.slug,
+        name: project.name,
+        slug: project.slug,
+      },
+    ];
   });
 }
 
@@ -174,7 +207,9 @@ export function adaptLiveOverview(value: unknown): Overview | null {
   const cpu = timeseriesOf(resources?.cpu, "cpu");
   const memory = scaleMemory(timeseriesOf(resources?.memory, "memory"));
   return {
-    empty: adaptServices(record).length === 0 && num(asRecord(kpis.avg_ms)?.value) === 0,
+    empty:
+      adaptServices(record).length === 0 &&
+      num(asRecord(kpis.avg_ms)?.value) === 0,
     kpis: [
       liveKpi("avg", "Avg response", kpis.avg_ms, "lower", "ms"),
       liveKpi("p95", "p95", kpis.p95_ms, "lower", "ms"),
@@ -195,14 +230,21 @@ export function adaptLiveOverview(value: unknown): Overview | null {
     },
     slowEndpoints: adaptEndpointRows(record.slow_endpoints),
     services: adaptServices(record),
-    incidents: adaptIncidents(record.incidents, text(record.slug) || "shop-api"),
+    incidents: adaptIncidents(
+      record.incidents,
+      text(record.slug) || "shop-api",
+    ),
     insights: [],
   };
 }
 
 export function adaptServices(value: unknown): ServiceSummary[] {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.services) ? record.services : [];
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.services)
+      ? record.services
+      : [];
   return list.flatMap((item) => {
     const service = asRecord(item);
     if (!service || typeof service.name !== "string") return [];
@@ -247,7 +289,8 @@ export function adaptServiceDetail(value: unknown): ServiceDetail | null {
       ? record.deploys.flatMap((item) => {
           const deploy = asRecord(item);
           if (!deploy || typeof deploy.version !== "string") return [];
-          const note = text(deploy.commit_sha) || text(deploy.note) || "Recorded deploy";
+          const note =
+            text(deploy.commit_sha) || text(deploy.note) || "Recorded deploy";
           return [{ time: num(deploy.time), version: deploy.version, note }];
         })
       : [],
@@ -256,10 +299,15 @@ export function adaptServiceDetail(value: unknown): ServiceDetail | null {
 
 export function adaptEndpointRows(value: unknown): EndpointRow[] {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.endpoints) ? record.endpoints : [];
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.endpoints)
+      ? record.endpoints
+      : [];
   return list.flatMap((item) => {
     const row = asRecord(item);
-    if (!row || typeof row.route !== "string" || typeof row.method !== "string") return [];
+    if (!row || typeof row.route !== "string" || typeof row.method !== "string")
+      return [];
     return [
       {
         key: text(row.key) || `${row.method} ${row.route}`,
@@ -316,7 +364,12 @@ export function adaptEndpointDetail(value: unknown): EndpointDetail | null {
   const record = asRecord(value);
   const rows = adaptEndpointRows(record ? [record] : null);
   const row = rows[0];
-  if (!record || !row || !("histogram" in record || "status" in record || "response_time" in record)) return null;
+  if (
+    !record ||
+    !row ||
+    !("histogram" in record || "status" in record || "response_time" in record)
+  )
+    return null;
   const throughput = timeseriesOf(record.throughput, "throughput", "requests");
   return {
     ...row,
@@ -326,13 +379,20 @@ export function adaptEndpointDetail(value: unknown): EndpointDetail | null {
       ...throughput,
       series: throughput.series.map((item) => ({ ...item, name: "requests" })),
     },
-    latency: timeseriesOf(record.response_time ?? record.latency, "response_time"),
+    latency: timeseriesOf(
+      record.response_time ?? record.latency,
+      "response_time",
+    ),
     timeSpent: [],
     traces: [],
   };
 }
 
-function namedPoints(metric: unknown, host: string | null, scale: (value: number) => number = (value) => value): Point[] {
+function namedPoints(
+  metric: unknown,
+  host: string | null,
+  scale: (value: number) => number = (value) => value,
+): Point[] {
   const record = asRecord(metric);
   const series = Array.isArray(record?.series) ? record.series : [];
   if (host) {
@@ -350,10 +410,16 @@ function namedPoints(metric: unknown, host: string | null, scale: (value: number
   }
   return [...buckets.entries()]
     .sort((left, right) => left[0] - right[0])
-    .map(([time, values]) => [time, values.reduce((sum, value) => sum + value, 0) / values.length]);
+    .map(([time, values]) => [
+      time,
+      values.reduce((sum, value) => sum + value, 0) / values.length,
+    ]);
 }
 
-function bundle(metrics: Record<string, unknown>, host: string | null): ResourceBundle {
+function bundle(
+  metrics: Record<string, unknown>,
+  host: string | null,
+): ResourceBundle {
   const cpu = asRecord(metrics.cpu_pct);
   const resolution = text(cpu?.resolution) || "1m";
   const deploys = deploysOf(cpu);
@@ -369,9 +435,29 @@ function bundle(metrics: Record<string, unknown>, host: string | null): Resource
   const netOut = namedPoints(metrics.net_out_bps, host, bytesToMb);
   return {
     cpu: make("cpu", namedPoints(metrics.cpu_pct, host), "cpu"),
-    memory: make("memory", namedPoints(metrics.mem_rss_mb, host, memPercent), "memory"),
-    disk: { metric: "disk", resolution, series: [{ name: "read", points: diskRead }, { name: "write", points: diskWrite }], deploys },
-    network: { metric: "network", resolution, series: [{ name: "in", points: netIn }, { name: "out", points: netOut }], deploys },
+    memory: make(
+      "memory",
+      namedPoints(metrics.mem_rss_mb, host, memPercent),
+      "memory",
+    ),
+    disk: {
+      metric: "disk",
+      resolution,
+      series: [
+        { name: "read", points: diskRead },
+        { name: "write", points: diskWrite },
+      ],
+      deploys,
+    },
+    network: {
+      metric: "network",
+      resolution,
+      series: [
+        { name: "in", points: netIn },
+        { name: "out", points: netOut },
+      ],
+      deploys,
+    },
     lag: make("lag", namedPoints(metrics.event_loop_lag_ms, host), "lag"),
   };
 }
@@ -382,7 +468,8 @@ function latest(points: Point[]): number {
 
 export function adaptResources(value: unknown): ResourcesPayload | null {
   const record = asRecord(value);
-  if (!record || !asRecord(record.metrics) || !Array.isArray(record.hosts)) return null;
+  if (!record || !asRecord(record.metrics) || !Array.isArray(record.hosts))
+    return null;
   const metrics = asRecord(record.metrics) ?? {};
   const cpu = asRecord(metrics.cpu_pct);
   const series = Array.isArray(cpu?.series) ? cpu.series : [];
@@ -403,7 +490,11 @@ export function adaptResources(value: unknown): ResourcesPayload | null {
   });
   const byHost: Record<string, ResourceBundle> = {};
   for (const host of hosts) byHost[host.host] = bundle(metrics, host.host);
-  const times = downsample(namedPoints(metrics.cpu_pct, hosts[0]?.host ?? null).map((point) => point[0]));
+  const times = downsample(
+    namedPoints(metrics.cpu_pct, hosts[0]?.host ?? null).map(
+      (point) => point[0],
+    ),
+  );
   const values: [number, number, number][] = [];
   hosts.forEach((host, y) => {
     const points = namedPoints(metrics.cpu_pct, host.host);
@@ -440,7 +531,11 @@ function nearest(points: Point[], time: number): number {
 
 export function adaptErrors(value: unknown): ErrorGroup[] | null {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.groups) ? record.groups : null;
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.groups)
+      ? record.groups
+      : null;
   if (!list) return null;
   return list.flatMap((item) => {
     const group = asRecord(item);
@@ -475,7 +570,8 @@ function stamp(value: unknown): number {
 
 export function adaptErrorDetail(value: unknown): ErrorDetail | null {
   const record = asRecord(value);
-  if (!record || typeof record.fingerprint !== "string" || !("stack" in record)) return null;
+  if (!record || typeof record.fingerprint !== "string" || !("stack" in record))
+    return null;
   const group = errorGroup(record);
   const events = Array.isArray(record.events) ? record.events : [];
   const latest = asRecord(events[0]);
@@ -483,14 +579,24 @@ export function adaptErrorDetail(value: unknown): ErrorDetail | null {
   const pairs = [
     { label: "Route", value: group.route || "—" },
     { label: "Service", value: group.service || "—" },
-    ...Object.entries(context).map(([label, item]) => ({ label, value: String(item) })),
+    ...Object.entries(context).map(([label, item]) => ({
+      label,
+      value: String(item),
+    })),
   ];
   return { ...group, stack: text(record.stack), context: pairs };
 }
 
-export function adaptRules(value: unknown, project: string): AlertRule[] | null {
+export function adaptRules(
+  value: unknown,
+  project: string,
+): AlertRule[] | null {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.rules) ? record.rules : null;
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.rules)
+      ? record.rules
+      : null;
   if (!list) return null;
   return list.flatMap((item) => {
     const rule = adaptRule(item, project);
@@ -500,7 +606,8 @@ export function adaptRules(value: unknown, project: string): AlertRule[] | null 
 
 export function adaptRule(value: unknown, project: string): AlertRule | null {
   const rule = asRecord(value);
-  if (!rule || typeof rule.metric !== "string" || !("threshold" in rule)) return null;
+  if (!rule || typeof rule.metric !== "string" || !("threshold" in rule))
+    return null;
   return {
     id: text(rule.id),
     project: text(rule.project) || project,
@@ -510,17 +617,32 @@ export function adaptRule(value: unknown, project: string): AlertRule | null {
     threshold: num(rule.threshold),
     window: text(rule.window),
     severity: severityOf(rule.severity),
-    channels: Array.isArray(rule.channels) ? rule.channels.map((item) => String(item)) : [],
+    channels: Array.isArray(rule.channels)
+      ? rule.channels.map((item) => String(item))
+      : [],
     enabled: rule.enabled !== false,
   };
 }
 
-export function adaptIncidents(value: unknown, project: string, env?: EnvName): Incident[] {
+export function adaptIncidents(
+  value: unknown,
+  project: string,
+  env?: EnvName,
+): Incident[] {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.incidents) ? record.incidents : [];
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.incidents)
+      ? record.incidents
+      : [];
   return list.flatMap((item) => {
     const incident = asRecord(item);
-    if (!incident || typeof incident.id !== "string" || typeof incident.title !== "string") return [];
+    if (
+      !incident ||
+      typeof incident.id !== "string" ||
+      typeof incident.title !== "string"
+    )
+      return [];
     const environment = envOf(incident.environment ?? incident.env);
     const hasEnv = incident.environment != null || incident.env != null;
     if (env && hasEnv && environment !== env) return [];
@@ -532,7 +654,8 @@ export function adaptIncidents(value: unknown, project: string, env?: EnvName): 
         severity: severityOf(incident.severity),
         status: statusOf(incident.status),
         service: text(incident.rule_name) || text(incident.service) || project,
-        startedAt: stamp(incident.startedAt ?? incident.started_at) || Date.now(),
+        startedAt:
+          stamp(incident.startedAt ?? incident.started_at) || Date.now(),
         project,
         env: environment,
       },
@@ -557,7 +680,9 @@ export function adaptScanSetup(value: unknown): ScanSetup {
   const record = asRecord(value);
   const config = asRecord(record?.scan_config) ?? {};
   const viewport = asRecord(config.viewport) ?? {};
-  const routes = Array.isArray(config.routes) ? config.routes.map((item) => String(item)).filter(Boolean) : ["/"];
+  const routes = Array.isArray(config.routes)
+    ? config.routes.map((item) => String(item)).filter(Boolean)
+    : ["/"];
   return {
     repositoryPath: text(record?.repository_path),
     framework: text(record?.framework),
@@ -572,7 +697,11 @@ export function adaptScanSetup(value: unknown): ScanSetup {
 
 export function adaptScans(value: unknown): ScanRun[] {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.scans) ? record.scans : [];
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.scans)
+      ? record.scans
+      : [];
   return list.flatMap((item) => {
     const scan = asRecord(item);
     if (!scan || typeof scan.id !== "string") return [];
@@ -585,7 +714,10 @@ export function adaptScans(value: unknown): ScanRun[] {
         projectId: text(scan.project_id),
         status: text(scan.status) || "queued",
         mode: text(scan.mode),
-        progress: { stage: text(progress.stage), message: text(progress.message) },
+        progress: {
+          stage: text(progress.stage),
+          message: text(progress.message),
+        },
         errorSummary: text(scan.error_summary),
         createdAt: text(scan.created_at),
         startedAt: text(scan.started_at),
@@ -641,7 +773,9 @@ function adaptIssues(value: unknown): AssetIssue[] {
         routes: listOf(row.routes).map((entry) => String(entry)),
         references: listOf(row.references).map((entry) => String(entry)),
         severity: text(row.severity),
-        notes: listOf(row.notes).map((entry) => String(entry)).filter(Boolean),
+        notes: listOf(row.notes)
+          .map((entry) => String(entry))
+          .filter(Boolean),
         kinds: listOf(row.kinds).map((entry) => String(entry)),
         failureType: text(row.failure_type),
         statusCode: optionalNum(row.status_code),
@@ -700,53 +834,78 @@ export function emptyAssetSummary(): AssetSummary {
   };
 }
 
-export function adaptScanAssets(value: unknown): { summary: AssetSummary; assets: ScanAssetRow[] } {
+export function adaptScanAssets(value: unknown): {
+  summary: AssetSummary;
+  assets: ScanAssetRow[];
+} {
   const record = asRecord(value);
   const summaryRecord = asRecord(record?.summary);
   const summary = emptyAssetSummary();
   if (summaryRecord) {
     const counts = asRecord(summaryRecord.counts);
     summary.counts = counts
-      ? Object.fromEntries(Object.entries(counts).map(([key, count]) => [key, optionalNum(count) ?? 0]))
+      ? Object.fromEntries(
+          Object.entries(counts).map(([key, count]) => [
+            key,
+            optionalNum(count) ?? 0,
+          ]),
+        )
       : {};
     summary.insights = adaptAssetInsights(summaryRecord.insights);
     summary.referenced = optionalNum(summaryRecord.referenced) ?? 0;
-    summary.potentiallyUnused = optionalNum(summaryRecord.potentially_unused) ?? 0;
-    summary.missingReference = optionalNum(summaryRecord.missing_reference) ?? 0;
+    summary.potentiallyUnused =
+      optionalNum(summaryRecord.potentially_unused) ?? 0;
+    summary.missingReference =
+      optionalNum(summaryRecord.missing_reference) ?? 0;
     summary.totalSizeBytes = optionalNum(summaryRecord.total_size_bytes) ?? 0;
-    summary.totalTransferBytes = optionalNum(summaryRecord.total_transfer_bytes) ?? 0;
+    summary.totalTransferBytes =
+      optionalNum(summaryRecord.total_transfer_bytes) ?? 0;
     summary.largest = listOf(summaryRecord.largest).flatMap((item) => {
       const row = asRecord(item);
       if (!row || typeof row.file_path !== "string") return [];
-      return [{ filePath: row.file_path, fileSizeBytes: optionalNum(row.file_size_bytes) ?? 0 }];
+      return [
+        {
+          filePath: row.file_path,
+          fileSizeBytes: optionalNum(row.file_size_bytes) ?? 0,
+        },
+      ];
     });
     summary.duplicates = listOf(summaryRecord.duplicates).flatMap((item) => {
       const row = asRecord(item);
       if (!row || typeof row.file_path !== "string") return [];
       return [{ filePath: row.file_path, duplicateOf: text(row.duplicate_of) }];
     });
-    summary.optimization = listOf(summaryRecord.optimization).flatMap((item) => {
-      const row = asRecord(item);
-      if (!row || typeof row.file_path !== "string") return [];
-      return [{ filePath: row.file_path, notes: listOf(row.notes).map((note) => String(note)) }];
-    });
+    summary.optimization = listOf(summaryRecord.optimization).flatMap(
+      (item) => {
+        const row = asRecord(item);
+        if (!row || typeof row.file_path !== "string") return [];
+        return [
+          {
+            filePath: row.file_path,
+            notes: listOf(row.notes).map((note) => String(note)),
+          },
+        ];
+      },
+    );
     summary.lazyLoading = listOf(summaryRecord.lazy_loading).flatMap((item) => {
       const row = asRecord(item);
       if (!row || typeof row.file_path !== "string") return [];
       return [{ filePath: row.file_path, note: text(row.note) }];
     });
-    summary.loadPerformance = listOf(summaryRecord.load_performance).flatMap((item) => {
-      const row = asRecord(item);
-      if (!row || typeof row.file_path !== "string") return [];
-      return [
-        {
-          filePath: row.file_path,
-          durationMs: optionalNum(row.duration_ms),
-          transferBytes: optionalNum(row.transfer_bytes),
-          failureType: text(row.failure_type),
-        },
-      ];
-    });
+    summary.loadPerformance = listOf(summaryRecord.load_performance).flatMap(
+      (item) => {
+        const row = asRecord(item);
+        if (!row || typeof row.file_path !== "string") return [];
+        return [
+          {
+            filePath: row.file_path,
+            durationMs: optionalNum(row.duration_ms),
+            transferBytes: optionalNum(row.transfer_bytes),
+            failureType: text(row.failure_type),
+          },
+        ];
+      },
+    );
     summary.locations = listOf(summaryRecord.locations).flatMap((item) => {
       const row = asRecord(item);
       if (!row || typeof row.file_path !== "string") return [];
@@ -774,8 +933,12 @@ export function adaptScanAssets(value: unknown): { summary: AssetSummary; assets
         explanation: text(asset.explanation),
         confidence: text(asset.confidence),
         duplicateOf: text(asset.duplicate_of),
-        references: Array.isArray(asset.references) ? asset.references.map((entry) => String(entry)) : [],
-        routes: Array.isArray(asset.routes) ? asset.routes.map((entry) => String(entry)) : [],
+        references: Array.isArray(asset.references)
+          ? asset.references.map((entry) => String(entry))
+          : [],
+        routes: Array.isArray(asset.routes)
+          ? asset.routes.map((entry) => String(entry))
+          : [],
         transferBytes: optionalNum(asset.transfer_bytes),
         durationMs: optionalNum(asset.duration_ms),
         failureType: text(asset.failure_type),
@@ -789,9 +952,81 @@ function listOf(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-export function adaptScanApis(value: unknown): { endpoints: ScanEndpoint[]; requests: ScanRequest[] } {
+/** Turns the API calls a runtime scan recorded into the same rows the live API and Services pages use. */
+export function buildCapture(
+  scan: ScanRun,
+  apis: { endpoints: ScanEndpoint[] },
+  serviceName: string,
+): ApiCapture {
+  const endpoints: EndpointRow[] = apis.endpoints.map((endpoint) => ({
+    key: `${endpoint.method} ${endpoint.endpointTemplate}`,
+    method: endpoint.method,
+    route: endpoint.endpointTemplate,
+    service: serviceName,
+    calls: endpoint.count,
+    avgMs: endpoint.avgMs ?? Number.NaN,
+    p95Ms: endpoint.p95Ms ?? Number.NaN,
+    p99Ms: endpoint.p99Ms ?? Number.NaN,
+    errorRate: (endpoint.errorRate ?? 0) * 100,
+    apdex: endpoint.apdex ?? 0,
+    trend: [],
+    captured: true,
+  }));
+  const calls = endpoints.reduce((sum, row) => sum + row.calls, 0);
+  const timed = apis.endpoints.filter(
+    (row) => row.avgMs !== null && row.sampleCount > 0,
+  );
+  const timedCalls = timed.reduce((sum, row) => sum + row.sampleCount, 0);
+  const latencyMs = timedCalls
+    ? timed.reduce((sum, row) => sum + (row.avgMs ?? 0) * row.sampleCount, 0) /
+      timedCalls
+    : 0;
+  const errorRate = calls
+    ? (endpoints.reduce(
+        (sum, row) => sum + (row.errorRate / 100) * row.calls,
+        0,
+      ) /
+        calls) *
+      100
+    : 0;
+  const health: ServiceSummary["health"] =
+    errorRate >= 5
+      ? "critical"
+      : errorRate >= 1 || latencyMs >= 800
+        ? "degraded"
+        : "healthy";
+  return {
+    scan,
+    endpoints,
+    service: {
+      name: serviceName,
+      description: "Measured by a runtime scan of the running app",
+      health,
+      latencyMs,
+      rpm: 0,
+      errorRate,
+      instances: 1,
+      version: "",
+      language: scan.config.framework,
+      spark: [],
+      capture: {
+        at: scan.completedAt || scan.createdAt,
+        calls,
+        routes: new Set(endpoints.map((row) => row.route)).size,
+        baseUrl: scan.config.baseUrl,
+      },
+    },
+  };
+}
+
+export function adaptScanApis(value: unknown): {
+  endpoints: ScanEndpoint[];
+  requests: ScanRequest[];
+} {
   const record = asRecord(value);
-  const endpoints = (record && Array.isArray(record.endpoints) ? record.endpoints : []).flatMap((item) => {
+  const endpoints = (
+    record && Array.isArray(record.endpoints) ? record.endpoints : []
+  ).flatMap((item) => {
     const endpoint = asRecord(item);
     if (!endpoint || typeof endpoint.endpoint_template !== "string") return [];
     return [
@@ -801,13 +1036,17 @@ export function adaptScanApis(value: unknown): { endpoints: ScanEndpoint[]; requ
         count: optionalNum(endpoint.count) ?? 0,
         sampleCount: optionalNum(endpoint.sample_count) ?? 0,
         errorRate: optionalNum(endpoint.error_rate),
+        avgMs: optionalNum(endpoint.avg_ms),
+        apdex: optionalNum(endpoint.apdex),
         medianMs: optionalNum(endpoint.median_ms),
         p95Ms: optionalNum(endpoint.p95_ms),
         p99Ms: optionalNum(endpoint.p99_ms),
       },
     ];
   });
-  const requests = (record && Array.isArray(record.requests) ? record.requests : []).flatMap((item) => {
+  const requests = (
+    record && Array.isArray(record.requests) ? record.requests : []
+  ).flatMap((item) => {
     const request = asRecord(item);
     if (!request) return [];
     return [
@@ -848,20 +1087,29 @@ export function adaptScanPages(value: unknown): ScanPage[] {
   });
 }
 
-export function adaptSettings(value: unknown, slug: string): SettingsPayload | null {
+export function adaptSettings(
+  value: unknown,
+  slug: string,
+): SettingsPayload | null {
   const record = asRecord(value);
   if (!record || typeof record.slug !== "string") return null;
   const keys = Array.isArray(record.api_keys) ? record.api_keys : [];
   const first = asRecord(keys[0]);
   const prefix = text(first?.prefix) || text(first?.demo_token);
-  const environments = (Array.isArray(record.environments) ? record.environments : []).flatMap((item) => {
+  const environments = (
+    Array.isArray(record.environments) ? record.environments : []
+  ).flatMap((item) => {
     const env = asRecord(item);
     const name = text(env?.name);
     if (name !== "prod" && name !== "staging" && name !== "dev") return [];
     return [{ name, region: "Not configured" } as const];
   });
   return {
-    project: { id: text(record.id) || slug, name: text(record.name) || slug, slug: record.slug },
+    project: {
+      id: text(record.id) || slug,
+      name: text(record.name) || slug,
+      slug: record.slug,
+    },
     environments,
     apiKey: prefix,
     team: [],
@@ -873,7 +1121,11 @@ export function adaptSettings(value: unknown, slug: string): SettingsPayload | n
 
 export function adaptInsights(value: unknown): InsightPreview[] | null {
   const record = asRecord(value);
-  const list = Array.isArray(value) ? value : record && Array.isArray(record.insights) ? record.insights : null;
+  const list = Array.isArray(value)
+    ? value
+    : record && Array.isArray(record.insights)
+      ? record.insights
+      : null;
   if (!list) return null;
   return list.flatMap((item) => {
     const insight = asRecord(item);

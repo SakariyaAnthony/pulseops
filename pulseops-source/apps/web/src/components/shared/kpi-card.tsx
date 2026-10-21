@@ -29,18 +29,36 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   return (
     <article
       className={cn(
-        "glass shadow-card rounded-xl2 p-4",
+        "glass glass-hover shadow-card relative overflow-hidden rounded-xl2 p-4",
         level === "danger" && "shadow-[0_0_24px_-4px_rgba(244,63,94,0.45)]",
         level === "warning" && "shadow-[0_0_24px_-4px_rgba(251,191,36,0.4)]",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-mute">{kpi.label}</p>
+      <span
+        className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full opacity-20 blur-2xl"
+        style={{ background: COLOR[kpi.id] ?? "#7C5CFF" }}
+        aria-hidden
+      />
+      <div className="relative flex items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-mute">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ background: COLOR[kpi.id] ?? "#7C5CFF" }}
+            aria-hidden
+          />
+          {kpi.label}
+        </p>
         <DeltaChip delta={kpi.delta} intent={kpi.intent} />
       </div>
-      <p className="kpi-value num mt-3 text-[32px] font-semibold leading-none tracking-tight text-ink">{formatKpi(kpi.value, kpi.unit)}</p>
-      <div className="mt-3">
-        {kpi.unit === "apdex" ? <ApdexGauge value={kpi.value} /> : <Sparkline data={kpi.spark} color={COLOR[kpi.id] ?? "#7C5CFF"} />}
+      <p className="kpi-value num relative mt-3 text-[32px] font-semibold leading-none tracking-tight text-ink">
+        {formatKpi(kpi.value, kpi.unit)}
+      </p>
+      <div className="relative mt-3">
+        {kpi.unit === "apdex" ? (
+          <ApdexGauge value={kpi.value} />
+        ) : (
+          <Sparkline data={kpi.spark} color={COLOR[kpi.id] ?? "#7C5CFF"} />
+        )}
       </div>
     </article>
   );

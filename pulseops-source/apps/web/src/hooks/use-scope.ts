@@ -5,7 +5,7 @@ import { parseEnv, parseRange } from "@/lib/scope";
 
 export function useScope(): Scope & {
   fingerprint: string | null;
-  update: (patch: Partial<Pick<Scope, "project" | "env" | "range">> & { fingerprint?: string | null }) => void;
+  update: (patch: Partial<Pick<Scope, "project" | "env" | "range">> & { fingerprint?: string | null; setup?: null }) => void;
 } {
   const [params, setParams] = useSearchParams();
   const range = parseRange(params.get("range"));
@@ -15,7 +15,7 @@ export function useScope(): Scope & {
   const fingerprint = params.get("fingerprint");
 
   const update = useCallback(
-    (patch: Partial<Pick<Scope, "project" | "env" | "range">> & { fingerprint?: string | null }) => {
+    (patch: Partial<Pick<Scope, "project" | "env" | "range">> & { fingerprint?: string | null; setup?: null }) => {
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
@@ -25,6 +25,7 @@ export function useScope(): Scope & {
           if (patch.project) next.set("project", patch.project);
           if (patch.env) next.set("env", patch.env);
           if (patch.range) next.set("range", patch.range);
+          if (patch.setup === null) next.delete("setup");
           if (patch.fingerprint === null) next.delete("fingerprint");
           else if (patch.fingerprint) next.set("fingerprint", patch.fingerprint);
           return next;

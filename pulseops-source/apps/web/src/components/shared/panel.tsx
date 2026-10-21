@@ -15,12 +15,18 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("glass shadow-card rounded-xl2 p-4", className)}>
+    <section className={cn("glass shadow-card rounded-xl2 p-5", className)}>
       {title || action ? (
-        <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            {title ? <h2 className="text-sm font-medium text-ink">{title}</h2> : null}
-            {description ? <p className="mt-0.5 text-xs text-mute">{description}</p> : null}
+            {title ? (
+              <h2 className="text-sm font-semibold tracking-tight text-ink">
+                {title}
+              </h2>
+            ) : null}
+            {description ? (
+              <p className="mt-1 text-xs leading-5 text-mute">{description}</p>
+            ) : null}
           </div>
           {action}
         </div>

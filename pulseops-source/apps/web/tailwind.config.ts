@@ -27,9 +27,10 @@ export default {
       },
       boxShadow: {
         glow: "0 0 32px -6px rgba(124,92,255,.45)",
-        card: "0 1px 0 rgba(255,255,255,.05) inset, 0 8px 24px -12px rgba(0,0,0,.6)",
+        card: "0 1px 0 rgba(255,255,255,.06) inset, 0 12px 32px -16px rgba(0,0,0,.7)",
+        lift: "0 1px 0 rgba(255,255,255,.08) inset, 0 18px 40px -18px rgba(124,92,255,.35)",
       },
-      borderRadius: { xl2: "12px" },
+      borderRadius: { xl2: "16px" },
       keyframes: {
         pulseRing: {
           "0%": { boxShadow: "0 0 0 0 rgba(52,211,153,.55)" },

@@ -1,6 +1,6 @@
 # Scan a React app with PulseOps
 
-PulseOps has no New project button. Create the project with the commands below, paste the API key into the React app, then read the report in the dashboard.
+One project per app. The same project holds the asset scan and the API performance report. Create it once in the dashboard, scan its assets, then capture its API calls. Live traffic from the SDK is optional.
 
 Use three terminals: one for the API, one for the PulseOps dashboard, one for the React app you want to scan.
 
@@ -66,41 +66,29 @@ Sign in:
 
 The sidebar should say **Live API**. The seeded project `shop-api` is demo traffic. Leave it and create a separate project for your React app.
 
-## 4. Create a project and copy the key
+## 4. Create the project (once per app)
 
-The dashboard cannot create a project. Run this from any directory while the API is up:
+In the dashboard open Assets, click **Edit setup**, choose **New project**, and fill in the repository path and base URL. The project name is filled in from the folder name, and the new project is selected for you. You can also pick **+ New project** at the bottom of the project dropdown in the top bar.
 
-```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:47322/auth/login \
-  -H 'content-type: application/json' \
-  -d '{"email":"demo@pulseops.dev","password":"pulseops-demo"}' \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+Names must be unique. Creating a name that already exists answers "A project named ... already exists", so use the existing project or delete it first (Settings, Delete project).
 
-curl -s -X POST http://127.0.0.1:47322/projects \
-  -H "authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"name":"My React app"}'
-```
+When the project is created, PulseOps shows its API key and the snippet once. You can skip it: the asset scan and **Capture API calls** need no key and no code in your app. To get a key later, open Settings and press **Generate new key**. The old key stops working and the full new key is shown once.
 
-The response looks like this:
+A short value such as `po_live_25e2dfe5349bfaceb747` is only a prefix. The full key is about 40 characters. The API answers `{"detail":"Invalid API key"}` to a prefix.
 
-```json
-{
-  "project": { "slug": "my-react-app", "name": "My React app" },
-  "api_key": {
-    "prefix": "po_live_AbCd",
-    "token": "po_live_AbCdEfGhIjKlMnOpQrStUvWxYz012345"
-  }
-}
-```
+The seeded `shop-api` project is demo traffic with the demo key `po_live_shop_api_demo_key`. Use a new project for your own app.
 
-Copy the `token` value. It is the long string that starts with `po_live_` and is about 40 characters. Paste that string into the React app. The word `token` is only the field name. A short value such as `po_live_25e2dfe5349bfaceb747` is a prefix, and the API answers `{"detail":"Invalid API key"}`.
+## 4b. Capture API calls (no code in your app)
 
-The full token is shown only in this response. If you lose it, run the create command again with a new name.
+Start your React app so it answers at the base URL. PulseOps does not start it for you, and the start command is only stored.
 
-The only key already in a fresh database is the demo key `po_live_shop_api_demo_key`. That key writes into `shop-api`. Use a new project for the React app.
+Open API and choose **App capture**, then press **Capture API calls**. PulseOps opens the base URL in Chromium, visits the routes in your setup, and records the API calls the app makes. Each route shows calls, average, p95 (needs 5 samples), p99 (needs 20), error rate, and Apdex. The Services page shows one service for the project, built from the same capture.
 
-## 5. Add the snippet to the React app
+A capture is a snapshot of that run, not live traffic. Press the button again after you change the app. If the capture fails, check that the app is running at the base URL. Calls to public hosts such as a third-party API are recorded. Calls to localhost, private network addresses, and hosts that do not resolve are blocked.
+
+## 5. Optional: live traffic with the SDK
+
+This step shows real traffic as you use the app, including throughput. Settings has a **Connect live traffic** panel with the same snippet and your service name filled in.
 
 Copy this file into the React app:
 
@@ -125,13 +113,13 @@ startPulseOps({
 
 Restart the React dev server, then open the React app in the browser and click through a few pages. Open one slow page and one page that throws, if you have them. The snippet sends a batch about every 5 seconds.
 
-In the browser Network tab, `POST http://127.0.0.1:47322/ingest/v1/metrics` should return 202. A 401 body of `{"detail":"Invalid API key"}` means the `apiKey` string is not the full token from step 4.
+In the browser Network tab, `POST http://127.0.0.1:47322/ingest/v1/metrics` should return 202. A 401 body of `{"detail":"Invalid API key"}` means the `apiKey` string is not the full key. Generate a new one in Settings.
 
 ## 6. Read the report
 
 In PulseOps, set the top bar to:
 
-- Project: **My React app** (slug `my-react-app`)
+- Project: your app's project
 - Environment: **dev**
 - Range: **15m**
 
@@ -157,7 +145,7 @@ The React app still calls port 47322. That is expected. Restart the API from ste
 
 ## 7. Lab scan
 
-A lab scan reads a local repository and, optionally, opens its pages in Chromium. It does not write into the live Overview, API, or Errors pages. Those pages stay on the SDK traffic from the steps above.
+A lab scan reads a local repository and, optionally, opens its pages in Chromium. It does not write into the live Overview or Errors pages. The API page reads a runtime scan through **App capture** (step 4b). The live view stays on SDK traffic.
 
 From `apps/api`, apply the scan tables and install the scanner libraries. If the virtualenv is not writable, the `--target .vendor` form puts them where the API loads them:
 
@@ -170,7 +158,7 @@ PYTHONPATH=.vendor .venv/bin/python -m playwright install chromium
 
 A repository path is allowed when it is inside your home directory. The API uses that default even when it is started with sudo. To allow a different folder, set `PULSEOPS_SCAN_ROOTS` in `apps/api/.env` and restart `python -m app`. A shell export is not visible to a process started with sudo.
 
-In the dashboard, open Settings for the project and save:
+In the dashboard, open Assets and click **Edit setup**. **Save to** shows which project the setup goes to. Choose **New project** to scan a different app without changing the current one. If you change the repository path of the current project, a notice says it replaces the old setup. Fill in:
 
 - Repository path: the absolute path of the React app
 - Base URL: `http://127.0.0.1:` plus the React app port
@@ -197,3 +185,58 @@ After a scan, the asset insights show:
 A runtime-only scan has no repository to compare with, so it lists the assets the routes requested and their failures. Static-only checks (unused, duplicates, dimensions) need a static or full scan.
 
 Potentially unused means the parser and the tested routes did not see the file. It is not a request to delete it. p95 is blank until an endpoint has at least 5 samples. p99 is blank until it has at least 20. A browser failure stays on the scan and does not appear as live SDK traffic.
+
+## 8. Web Vitals: real users and lab audits
+
+The **Web Vitals** page (sidebar, under Monitor) answers "how fast do pages load and respond?" with two sources that are never merged:
+
+| Tab | Source | What it shows |
+| --- | --- | --- |
+| Field | The browser SDK, from real visits | LCP, INP, CLS, FCP and TTFB at the 75th percentile, per route, split by device and by first load versus navigation inside the app. Also load time, transferred bytes, requests and long tasks |
+| Lab | Lighthouse, run on demand | Score, LCP, Total Blocking Time, CLS, FCP, TTFB, transfer size and requests per route, once as mobile and once as desktop, plus the likely cause of anything slow |
+
+A synthetic test can reproduce a bottleneck. Real users show how the app is actually experienced. When the two disagree, trust the field numbers and use the lab to find out why.
+
+### Field data
+
+1. Install the library the SDK uses, in the React app: `npm install web-vitals`. Then copy the newer `packages/sdk-browser/src/index.ts` into the app as in step 5. Settings shows the matching snippet.
+2. Open a few pages. Vitals are batched and sent to `/ingest/v1/vitals` about every 5 seconds and when the tab is hidden.
+3. Open Web Vitals. A percentile appears only after **20 samples**. Below that the page shows a dash, because the 75th percentile of a handful of visits is noise.
+
+Notes:
+
+- `vitals: false` turns collection off. `sampleRate: 0.25` reports one visit in four.
+- Only the path is stored. Query strings and fragments are dropped before sending and again on the server.
+- LCP, FCP and TTFB belong to the route where the visit started. INP and CLS cover the whole visit, so each is attributed to the route that was showing when the slow interaction or the shift happened.
+- Navigation inside a single-page app has no LCP in the `web-vitals` library, so those visits contribute load time, requests and long tasks, but not LCP.
+- The device is mobile, tablet or desktop, from the browser's mobile hint or the screen width.
+
+### Lab audit
+
+Lighthouse is installed once, separately from the Python packages:
+
+```bash
+cd apps/api/tools/lighthouse
+npm install
+```
+
+It uses the Chromium that Playwright installed (step 7). If it cannot find it, set `PULSEOPS_CHROME_PATH` in `apps/api/.env`. `PULSEOPS_LIGHTHOUSE_BIN` points at a different Lighthouse binary.
+
+Set the base URL and routes (step 4), start the app, then open Web Vitals, choose the **Lab** tab and click **Run Web Vitals audit**. It audits every route as mobile and as desktop, one at a time, and can be cancelled. Each route and device takes roughly 15 to 30 seconds.
+
+Lighthouse starts its own Chrome, so unlike the runtime scan it does not apply the request filter that blocks private hosts. The base URL is still limited to the app address you configured.
+
+Lighthouse does not measure INP. The lab table shows Total Blocking Time (TBT) instead, which is what Lighthouse uses as its responsiveness stand-in.
+
+### Route diagnosis
+
+Selecting a route shows the real-user splits next to the lab findings. Findings come from fixed rules over the Lighthouse report and always quote their evidence:
+
+- Large hero image: the LCP image is large (flagged from 200 KB).
+- Blocking API request: a fetch or XHR took 500 ms or more.
+- Long JavaScript task: blocking time of 200 ms or more.
+- Render-blocking resources: CSS or scripts that delay first paint.
+- Layout shift: CLS of 0.1 or more, with the elements involved.
+- Slow server response: TTFB of 600 ms or more.
+
+The thresholds for good, needs improvement and poor are the standard web-vitals limits: LCP 2.5 s and 4 s, INP 200 ms and 500 ms, CLS 0.1 and 0.25, FCP 1.8 s and 3 s, TTFB 800 ms and 1.8 s.

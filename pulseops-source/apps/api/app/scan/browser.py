@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
+import socket
 from collections.abc import Callable
 from urllib.parse import unquote, urlparse
 
@@ -31,7 +33,8 @@ def collect_routes(
             context = browser.new_context(
                 viewport={"width": int(viewport.get("width", 1280)), "height": int(viewport.get("height", 720))}
             )
-            context.route("**/*", lambda route: _gate(route, host))
+            decisions: dict[str, bool] = {}
+            context.route("**/*", lambda route: _gate(route, host, decisions))
             page = context.new_page()
             page.add_init_script(_INIT_SCRIPT)
             for route in routes:
@@ -43,12 +46,43 @@ def collect_routes(
     return {"pages": pages, "observations": observations, "assets": seen_assets}
 
 
-def _gate(route, host: str) -> None:
+def _gate(route, host: str, decisions: dict[str, bool] | None = None) -> None:
     target = (urlparse(route.request.url).hostname or "").lower()
-    if target in {"", host}:
+    if is_allowed_host(target, host, decisions if decisions is not None else {}):
         route.continue_()
         return
     route.abort()
+
+
+def is_allowed_host(target: str, app_host: str, decisions: dict[str, bool]) -> bool:
+    """The app's own host and public internet hosts are allowed, so calls to a hosted backend are measured.
+
+    Anything that resolves to a private, loopback or link-local address stays blocked, so a scanned page cannot
+    reach other services on this machine or the local network.
+    """
+    if target in {"", app_host}:
+        return True
+    if target not in decisions:
+        decisions[target] = _is_public_host(target)
+    return decisions[target]
+
+
+def _is_public_host(host: str) -> bool:
+    if host == "localhost" or host.endswith((".local", ".localhost", ".internal", ".lan")):
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        try:
+            if not ipaddress.ip_address(info[4][0].split("%")[0]).is_global:
+                return False
+        except ValueError:
+            return False
+    return True
 
 
 def _open_route(page, base_url: str, route: str, viewport: dict, timeout_ms: int, observations: list[dict], seen_assets: list[dict]) -> dict:

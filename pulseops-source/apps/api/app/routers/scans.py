@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.constants import APDEX_4T_MS, APDEX_T_MS
 from app.db import get_db
 from app.deps import fetch_project, get_current_user
 from app.models import ApiObservation, PageResult, Project, ScanAsset, ScanRun, User
@@ -53,12 +54,8 @@ def _bind_project(project_id: str, user: User = Depends(get_current_user), db: S
     return fetch_project(db, user, project_id)
 
 
-@router.patch("/projects/{project_id}/scan-config")
-def update_scan_config(
-    body: ScanConfigIn,
-    project: Project = Depends(_bind_project),
-    db: Session = Depends(get_db),
-):
+def apply_scan_config(project: Project, body: ScanConfigIn) -> None:
+    """Validate the scan setup, then set it on the project. Raises 422 before changing anything."""
     repository = resolve_repository(body.repository_path) if body.repository_path else None
     base_url = clean_base_url(body.base_url)
     routes = clean_routes(body.routes)
@@ -71,6 +68,15 @@ def update_scan_config(
         "timeout_ms": body.timeout_ms,
         "start_command": body.start_command.strip() if body.start_command else None,
     }
+
+
+@router.patch("/projects/{project_id}/scan-config")
+def update_scan_config(
+    body: ScanConfigIn,
+    project: Project = Depends(_bind_project),
+    db: Session = Depends(get_db),
+):
+    apply_scan_config(project, body)
     db.commit()
     db.refresh(project)
     from app.serialize import project_out
@@ -87,7 +93,7 @@ def create_scan(
     config = dict(project.scan_config or {})
     if body.mode in {"static", "full"} and not project.repository_path:
         raise HTTPException(status_code=422, detail="Add a repository path before a static scan")
-    if body.mode in {"browser", "full"} and not project.base_url:
+    if body.mode in {"browser", "full", "vitals"} and not project.base_url:
         raise HTTPException(status_code=422, detail="Add a localhost base URL before a browser scan")
     snapshot = {
         "project_id": str(project.id),
@@ -195,6 +201,15 @@ def scan_apis(scan_id: str, user: User = Depends(get_current_user), db: Session 
     for (method, template), items in sorted(grouped.items()):
         durations = [item.duration_ms for item in items if item.duration_ms is not None]
         failures = [item for item in items if item.failure_type or (item.status_code is not None and item.status_code >= 400)]
+        satisfied = tolerating = 0
+        for item in items:
+            failed = bool(item.failure_type) or (item.status_code is not None and item.status_code >= 500)
+            if failed or item.duration_ms is None:
+                continue
+            if item.duration_ms <= APDEX_T_MS:
+                satisfied += 1
+            elif item.duration_ms <= APDEX_4T_MS:
+                tolerating += 1
         endpoints.append(
             {
                 "method": method,
@@ -202,6 +217,8 @@ def scan_apis(scan_id: str, user: User = Depends(get_current_user), db: Session 
                 "count": len(items),
                 "sample_count": len(durations),
                 "error_rate": len(failures) / len(items) if items else None,
+                "avg_ms": sum(durations) / len(durations) if durations else None,
+                "apdex": (satisfied + tolerating / 2) / len(items) if items else None,
                 "median_ms": median(durations),
                 "p95_ms": percentile(durations, 95),
                 "p99_ms": percentile(durations, 99),
@@ -242,6 +259,7 @@ def scan_pages(scan_id: str, user: User = Depends(get_current_user), db: Session
                 "sample_count": row.sample_count,
                 "status": row.status,
                 "error_summary": row.error_summary,
+                "form_factor": row.form_factor,
             }
             for row in rows
         ]

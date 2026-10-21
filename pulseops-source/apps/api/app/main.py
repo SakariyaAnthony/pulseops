@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import alerts, auth, endpoints, errors, health, ingest, insights, metrics, overview, projects, resources, scans, services, ws
+from app.routers import alerts, auth, endpoints, errors, health, ingest, insights, metrics, overview, projects, resources, scans, services, vitals, ws
 
 
 @asynccontextmanager
@@ -37,5 +37,6 @@ app.include_router(resources.router)
 app.include_router(errors.router)
 app.include_router(insights.router)
 app.include_router(alerts.router)
+app.include_router(vitals.router)
 app.include_router(ingest.router)
 app.include_router(ws.router)

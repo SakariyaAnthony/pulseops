@@ -14,7 +14,11 @@ import {
 import { ArrowDown, ArrowUp, Columns3 } from "lucide-react";
 import { Sparkline } from "@/components/shared/sparkline";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useScope } from "@/hooks/use-scope";
 import type { EndpointRow } from "@/lib/api/types";
 import { formatApdex, formatCompact, formatMs, formatPct } from "@/lib/format";
@@ -70,31 +74,94 @@ const columns = helper.columns([
     header: "Method",
     enableHiding: false,
     sortFn: "alphanumeric",
-    cell: (info) => <span className={cn("text-xs font-semibold", METHOD[info.getValue()] ?? "text-dim")}>{info.getValue()}</span>,
+    cell: (info) => (
+      <span
+        className={cn(
+          "text-xs font-semibold",
+          METHOD[info.getValue()] ?? "text-dim",
+        )}
+      >
+        {info.getValue()}
+      </span>
+    ),
   }),
   helper.accessor("route", {
     header: "Route",
     enableHiding: false,
     sortFn: "alphanumeric",
-    cell: (info) => <span className="num truncate text-ink">{info.getValue()}</span>,
+    cell: (info) => (
+      <span className="num truncate text-ink">{info.getValue()}</span>
+    ),
   }),
-  helper.accessor("service", { header: "Service", sortFn: "alphanumeric", cell: (info) => <span className="text-dim">{info.getValue()}</span> }),
-  helper.accessor("calls", { header: "Calls", sortFn: "basic", sortDescFirst: true, cell: (info) => <span className="num">{formatCompact(info.getValue())}</span> }),
-  helper.accessor("avgMs", { header: "Avg", sortFn: "basic", sortDescFirst: true, cell: (info) => <span className="num">{formatMs(info.getValue())}</span> }),
-  helper.accessor("p95Ms", { header: "p95", sortFn: "basic", sortDescFirst: true, cell: (info) => <span className="num text-ink">{formatMs(info.getValue())}</span> }),
-  helper.accessor("p99Ms", { header: "p99", sortFn: "basic", sortDescFirst: true, cell: (info) => <span className="num">{formatMs(info.getValue())}</span> }),
-  helper.accessor("errorRate", { header: "Error %", sortFn: "basic", sortDescFirst: true, cell: (info) => <span className={cn("num", info.getValue() >= 1 ? "text-danger" : "text-dim")}>{formatPct(info.getValue())}</span> }),
-  helper.accessor("apdex", { header: "Apdex", sortFn: "basic", cell: (info) => <span className="num">{formatApdex(info.getValue())}</span> }),
+  helper.accessor("service", {
+    header: "Service",
+    sortFn: "alphanumeric",
+    cell: (info) => <span className="text-dim">{info.getValue()}</span>,
+  }),
+  helper.accessor("calls", {
+    header: "Calls",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: (info) => (
+      <span className="num">{formatCompact(info.getValue())}</span>
+    ),
+  }),
+  helper.accessor("avgMs", {
+    header: "Avg",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: (info) => <span className="num">{formatMs(info.getValue())}</span>,
+  }),
+  helper.accessor("p95Ms", {
+    header: "p95",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: (info) => (
+      <span className="num text-ink">{formatMs(info.getValue())}</span>
+    ),
+  }),
+  helper.accessor("p99Ms", {
+    header: "p99",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: (info) => <span className="num">{formatMs(info.getValue())}</span>,
+  }),
+  helper.accessor("errorRate", {
+    header: "Error %",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: (info) => (
+      <span
+        className={cn("num", info.getValue() >= 1 ? "text-danger" : "text-dim")}
+      >
+        {formatPct(info.getValue())}
+      </span>
+    ),
+  }),
+  helper.accessor("apdex", {
+    header: "Apdex",
+    sortFn: "basic",
+    cell: (info) => <span className="num">{formatApdex(info.getValue())}</span>,
+  }),
   helper.display({
     id: "trend",
     header: "Trend",
     enableSorting: false,
     enableHiding: true,
-    cell: (info) => <Sparkline data={info.row.original.trend} color="#22D3EE" />,
+    cell: (info) => (
+      <Sparkline data={info.row.original.trend} color="#22D3EE" />
+    ),
   }),
 ]);
 
-export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
+/** `readOnly` is for rows measured by a scan: they have no detail page and no trend. */
+export function EndpointTable({
+  rows,
+  readOnly = false,
+}: {
+  rows: EndpointRow[];
+  readOnly?: boolean;
+}) {
   const navigate = useNavigate();
   const scope = useScope();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -102,7 +169,10 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
     features,
     data: rows,
     columns,
-    initialState: { sorting: [{ id: "p95Ms", desc: true }] },
+    initialState: {
+      sorting: [{ id: readOnly ? "calls" : "p95Ms", desc: true }],
+      columnVisibility: readOnly ? { trend: false } : {},
+    },
     getRowId: (row) => row.key,
   });
   const model = table.getRowModel().rows;
@@ -113,7 +183,9 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
     overscan: 8,
   });
   const visible = table.getVisibleLeafColumns();
-  const template = visible.map((column) => WIDTH[column.id] ?? "100px").join(" ");
+  const template = visible
+    .map((column) => WIDTH[column.id] ?? "100px")
+    .join(" ");
 
   return (
     <div>
@@ -126,7 +198,9 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-48">
-            <p className="mb-2 text-[11px] uppercase tracking-wide text-mute">Show</p>
+            <p className="mb-2 text-[11px] uppercase tracking-wide text-mute">
+              Show
+            </p>
             <ul className="space-y-1">
               {table.getAllLeafColumns().map((column) => (
                 <li key={column.id}>
@@ -149,9 +223,16 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
       <div className="overflow-x-auto rounded-xl2 border border-line">
         <div className="min-w-[920px]">
           {table.getHeaderGroups().map((group) => (
-            <div key={group.id} role="row" className="grid items-center gap-2 border-b border-line bg-base/40 px-3 py-2" style={{ gridTemplateColumns: template }}>
+            <div
+              key={group.id}
+              role="row"
+              className="grid items-center gap-2 border-b border-line bg-base/40 px-3 py-2"
+              style={{ gridTemplateColumns: template }}
+            >
               {group.headers.map((header) => {
-                const sorted = header.column.getCanSort() ? header.column.getIsSorted() : false;
+                const sorted = header.column.getCanSort()
+                  ? header.column.getIsSorted()
+                  : false;
                 return (
                   <button
                     key={header.id}
@@ -160,16 +241,25 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
                     className="flex items-center gap-1 text-left text-[11px] font-medium uppercase tracking-wide text-mute"
                     onClick={header.column.getToggleSortingHandler()}
                   >
-                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                    {header.isPlaceholder ? null : (
+                      <table.FlexRender header={header} />
+                    )}
                     {sorted === "asc" ? <ArrowUp className="h-3 w-3" /> : null}
-                    {sorted === "desc" ? <ArrowDown className="h-3 w-3" /> : null}
+                    {sorted === "desc" ? (
+                      <ArrowDown className="h-3 w-3" />
+                    ) : null}
                   </button>
                 );
               })}
             </div>
           ))}
           <div ref={parentRef} className="relative max-h-[560px] overflow-auto">
-            <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+              }}
+            >
               {virtualizer.getVirtualItems().map((item) => {
                 const row = model[item.index];
                 return (
@@ -179,15 +269,40 @@ export function EndpointTable({ rows }: { rows: EndpointRow[] }) {
                     tabIndex={0}
                     data-index={item.index}
                     ref={virtualizer.measureElement}
-                    className="absolute grid w-full cursor-pointer items-center gap-2 border-b border-line/70 px-3 hover:bg-white/[0.03] focus-visible:bg-white/[0.04] focus-visible:outline-none"
-                    style={{ height: 52, transform: `translateY(${item.start}px)`, gridTemplateColumns: template }}
-                    onClick={() => navigate(withScope(`/endpoints/${encodeURIComponent(row.original.key)}`, scope))}
+                    className={cn(
+                      "absolute grid w-full items-center gap-2 border-b border-line/70 px-3 hover:bg-white/[0.03] focus-visible:bg-white/[0.04] focus-visible:outline-none",
+                      !readOnly && "cursor-pointer",
+                    )}
+                    style={{
+                      height: 52,
+                      transform: `translateY(${item.start}px)`,
+                      gridTemplateColumns: template,
+                    }}
+                    onClick={() => {
+                      if (!readOnly)
+                        navigate(
+                          withScope(
+                            `/endpoints/${encodeURIComponent(row.original.key)}`,
+                            scope,
+                          ),
+                        );
+                    }}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") navigate(withScope(`/endpoints/${encodeURIComponent(row.original.key)}`, scope));
+                      if (!readOnly && event.key === "Enter")
+                        navigate(
+                          withScope(
+                            `/endpoints/${encodeURIComponent(row.original.key)}`,
+                            scope,
+                          ),
+                        );
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <div key={cell.id} role="cell" className="min-w-0 truncate text-sm">
+                      <div
+                        key={cell.id}
+                        role="cell"
+                        className="min-w-0 truncate text-sm"
+                      >
                         <table.FlexRender cell={cell} />
                       </div>
                     ))}

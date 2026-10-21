@@ -6,11 +6,15 @@ import { cn } from "@/lib/utils";
 export const Select = SelectPrimitive.Root;
 export const SelectValue = SelectPrimitive.Value;
 
-export function SelectTrigger({ className, children, ...props }: ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>) {
+export function SelectTrigger({
+  className,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>) {
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-9 items-center justify-between gap-2 rounded-lg border border-line bg-base/60 px-2.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-violet data-[placeholder]:text-mute",
+        "flex h-9 items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 transition-colors hover:border-white/20 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-violet data-[placeholder]:text-mute",
         className,
       )}
       {...props}
@@ -23,26 +27,39 @@ export function SelectTrigger({ className, children, ...props }: ComponentPropsW
   );
 }
 
-export function SelectContent({ className, children, ...props }: ComponentPropsWithoutRef<typeof SelectPrimitive.Content>) {
+export function SelectContent({
+  className,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<typeof SelectPrimitive.Content>) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         position="popper"
         sideOffset={6}
-        className={cn("z-50 overflow-hidden rounded-xl2 border border-line bg-elevated shadow-card", className)}
+        className={cn(
+          "z-50 overflow-hidden rounded-xl2 border border-white/10 bg-elevated/95 shadow-card backdrop-blur-xl",
+          className,
+        )}
         {...props}
       >
-        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+        <SelectPrimitive.Viewport className="p-1">
+          {children}
+        </SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );
 }
 
-export function SelectItem({ className, children, ...props }: ComponentPropsWithoutRef<typeof SelectPrimitive.Item>) {
+export function SelectItem({
+  className,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<typeof SelectPrimitive.Item>) {
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer items-center rounded-lg py-1.5 pl-7 pr-3 text-sm text-ink outline-none data-[highlighted]:bg-white/5",
+        "relative flex cursor-pointer items-center rounded-lg py-2 pl-7 pr-3 text-sm text-ink outline-none data-[highlighted]:bg-white/5",
         className,
       )}
       {...props}

@@ -225,6 +225,18 @@ class PageResult(Base):
     sample_count: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(32), default="ok")
     error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    form_factor: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ttfb_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fcp_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tbt_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speed_index: Mapped[float | None] = mapped_column(Float, nullable=True)
+    perf_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    script_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    long_task_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    long_task_total_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    resource_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    resource_summary_json: Mapped[dict] = mapped_column(JSONB, default=dict)
+    diagnosis_json: Mapped[list] = mapped_column(JSONB, default=list)
 
 
 class ApiObservation(Base):

@@ -15,6 +15,7 @@ const ErrorsPage = lazy(() => import("@/features/errors/errors-page").then((modu
 const AlertsPage = lazy(() => import("@/features/alerts/alerts-page").then((module) => ({ default: module.AlertsPage })));
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })));
 const InsightsPage = lazy(() => import("@/features/insights/insights-page").then((module) => ({ default: module.InsightsPage })));
+const WebVitalsPage = lazy(() => import("@/features/web-vitals/web-vitals-page").then((module) => ({ default: module.WebVitalsPage })));
 const ScansPage = lazy(() => import("@/features/scans/scans-page").then((module) => ({ default: module.ScansPage })));
 const ScanHistoryPage = lazy(() => import("@/features/scans/scan-history-page").then((module) => ({ default: module.ScanHistoryPage })));
 const ScanDetailPage = lazy(() => import("@/features/scans/scan-detail-page").then((module) => ({ default: module.ScanDetailPage })));
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: "services/:name", element: <ServiceDetailPage /> },
       { path: "endpoints", element: <EndpointsPage /> },
       { path: "endpoints/:key", element: <EndpointDetailPage /> },
+      { path: "vitals", element: <WebVitalsPage /> },
       { path: "traces", element: <ComingSoonPage page="traces" /> },
       { path: "resources", element: <ResourcesPage /> },
       { path: "errors", element: <ErrorsPage /> },

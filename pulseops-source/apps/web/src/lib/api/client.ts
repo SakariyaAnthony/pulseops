@@ -60,6 +60,17 @@ import type {
   SessionUser,
   SettingsPayload,
 } from "@/lib/api/types";
+import {
+  adaptVitalsDetail,
+  adaptVitalsLab,
+  adaptVitalsRoutes,
+  adaptVitalsSummary,
+  mockDetail,
+  mockLab,
+  mockRoutes,
+  mockSummary,
+  type VitalFilters,
+} from "@/lib/api/vitals";
 import { useUi } from "@/store/ui";
 
 const DEMO_EMAIL = "demo@pulseops.dev";
@@ -67,9 +78,15 @@ const DEMO_PASSWORD = "pulseops-demo";
 
 const LOCAL_API = "http://127.0.0.1:47322";
 
+/** The address a separate app (not this dashboard) posts telemetry to. Always the real API, never the dev proxy. */
+export function ingestUrl(): string {
+  return (import.meta.env.VITE_API_URL || "").replace(/\/$/, "") || LOCAL_API;
+}
+
 export function apiBase(): string {
   const configured = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  if (import.meta.env.DEV && (configured === "" || configured === LOCAL_API)) return "/api";
+  if (import.meta.env.DEV && (configured === "" || configured === LOCAL_API))
+    return "/api";
   return configured || LOCAL_API;
 }
 
@@ -133,9 +150,14 @@ async function tryGet(path: string): Promise<unknown | null> {
   }
 }
 
-type SendResult = { state: "ok"; body: unknown } | { state: "down" } | { state: "error" };
+type SendResult =
+  { state: "ok"; body: unknown } | { state: "down" } | { state: "error" };
 
-async function sendJson(path: string, method: string, body?: unknown): Promise<unknown> {
+async function sendJson(
+  path: string,
+  method: string,
+  body?: unknown,
+): Promise<unknown> {
   if (!(await probeApi())) throw new Error("API is down");
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = readToken();
@@ -149,14 +171,21 @@ async function sendJson(path: string, method: string, body?: unknown): Promise<u
   const textBody = await response.text();
   const parsed = textBody ? (JSON.parse(textBody) as unknown) : null;
   if (!response.ok) {
-    const record = parsed && typeof parsed === "object" ? (parsed as { detail?: unknown }) : null;
+    const record =
+      parsed && typeof parsed === "object"
+        ? (parsed as { detail?: unknown })
+        : null;
     const detail = record?.detail;
     throw new Error(typeof detail === "string" ? detail : "Request failed");
   }
   return parsed;
 }
 
-async function trySend(path: string, method: string, body?: unknown): Promise<SendResult> {
+async function trySend(
+  path: string,
+  method: string,
+  body?: unknown,
+): Promise<SendResult> {
   if (!(await probeApi())) return { state: "down" };
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -176,6 +205,17 @@ async function trySend(path: string, method: string, body?: unknown): Promise<Se
   } catch {
     return { state: "error" };
   }
+}
+
+function scanConfigBody(scan: ScanSetup) {
+  return {
+    repository_path: scan.repositoryPath || null,
+    base_url: scan.baseUrl || null,
+    routes: scan.routes,
+    viewport: { width: scan.viewportWidth, height: scan.viewportHeight },
+    timeout_ms: scan.timeoutMs,
+    start_command: scan.startCommand || null,
+  };
 }
 
 function projectPath(project: string, suffix = "") {
@@ -219,7 +259,11 @@ function emptyResources(): ResourcesPayload {
 function isOverview(value: unknown): value is Overview {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<Overview>;
-  return Array.isArray(record.kpis) && !!record.responseTime && Array.isArray(record.responseTime.series);
+  return (
+    Array.isArray(record.kpis) &&
+    !!record.responseTime &&
+    Array.isArray(record.responseTime.series)
+  );
 }
 
 function blankSettings(slug: string): SettingsPayload {
@@ -238,7 +282,17 @@ function query(scope: Scope) {
   return new URLSearchParams({ range: scope.range, env: scope.env }).toString();
 }
 
-async function offline<T>(scope: Scope, fallback: () => T): Promise<T | undefined> {
+function vitalsQuery(scope: Scope, filters: VitalFilters, extra?: Record<string, string>) {
+  const params = new URLSearchParams({ range: scope.range, env: scope.env, ...extra });
+  if (filters.device !== "all") params.set("device", filters.device);
+  if (filters.nav !== "all") params.set("nav_type", filters.nav);
+  return params.toString();
+}
+
+async function offline<T>(
+  scope: Scope,
+  fallback: () => T,
+): Promise<T | undefined> {
   if (scope.chaos) {
     await pause(280);
     throw new Error("The metrics query timed out before the rollup came back.");
@@ -249,7 +303,6 @@ async function offline<T>(scope: Scope, fallback: () => T): Promise<T | undefine
   return fallback();
 }
 
-
 export const api = {
   async login(email: string, password: string): Promise<SessionUser> {
     const up = await probeApi();
@@ -257,7 +310,10 @@ export const api = {
       try {
         const response = await fetch(`${apiBase()}/auth/login`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
           body: JSON.stringify({ email, password }),
         });
         if (response.status === 401 || response.status === 403) {
@@ -279,13 +335,26 @@ export const api = {
           }
         }
       } catch (error) {
-        if (error instanceof Error && error.message === "Those credentials were rejected.") throw error;
+        if (
+          error instanceof Error &&
+          error.message === "Those credentials were rejected."
+        )
+          throw error;
       }
     }
-    if (email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      return { token: "demo.pulseops.token", email: DEMO_EMAIL, name: "Demo Operator" };
+    if (
+      email.trim().toLowerCase() === DEMO_EMAIL &&
+      password === DEMO_PASSWORD
+    ) {
+      return {
+        token: "demo.pulseops.token",
+        email: DEMO_EMAIL,
+        name: "Demo Operator",
+      };
     }
-    throw new Error("Use demo@pulseops.dev and pulseops-demo while the API is offline.");
+    throw new Error(
+      "Use demo@pulseops.dev and pulseops-demo while the API is offline.",
+    );
   },
 
   async projects(chaos = false): Promise<Project[]> {
@@ -300,66 +369,98 @@ export const api = {
   },
 
   async overview(scope: Scope) {
-    const mocked = await offline(scope, () => mockOverview(scope.project, scope.env, scope.range));
+    const mocked = await offline(scope, () =>
+      mockOverview(scope.project, scope.env, scope.range),
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/overview")}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/overview")}?${query(scope)}`,
+    );
     const adapted = isOverview(remote) ? remote : adaptLiveOverview(remote);
     mark("api");
     return adapted ?? emptyOverview();
   },
 
   async services(scope: Scope) {
-    const mocked = await offline(scope, () => mockServices(scope.project, scope.env, scope.range));
+    const mocked = await offline(scope, () =>
+      mockServices(scope.project, scope.env, scope.range),
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/services")}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/services")}?${query(scope)}`,
+    );
     mark("api");
     return adaptServices(remote);
   },
 
   async service(scope: Scope, name: string) {
-    const mocked = await offline(scope, () => mockService(scope.project, scope.env, scope.range, name));
+    const mocked = await offline(scope, () =>
+      mockService(scope.project, scope.env, scope.range, name),
+    );
     if (mocked !== undefined) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, `/services/${encodeURIComponent(name)}`)}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, `/services/${encodeURIComponent(name)}`)}?${query(scope)}`,
+    );
     mark("api");
     return adaptServiceDetail(remote);
   },
 
   async endpoints(scope: Scope) {
-    const mocked = await offline(scope, () => mockEndpoints(scope.project, scope.env, scope.range));
+    const mocked = await offline(scope, () =>
+      mockEndpoints(scope.project, scope.env, scope.range),
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/endpoints")}?${query(scope)}&limit=200`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/endpoints")}?${query(scope)}&limit=200`,
+    );
     mark("api");
     return adaptEndpointRows(remote);
   },
 
   async endpoint(scope: Scope, key: string) {
-    const mocked = await offline(scope, () => mockEndpoint(scope.project, scope.env, scope.range, key));
+    const mocked = await offline(scope, () =>
+      mockEndpoint(scope.project, scope.env, scope.range, key),
+    );
     if (mocked !== undefined) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, `/endpoints/${encodeURIComponent(key)}`)}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, `/endpoints/${encodeURIComponent(key)}`)}?${query(scope)}`,
+    );
     mark("api");
     return adaptEndpointDetail(remote);
   },
 
   async resources(scope: Scope) {
-    const mocked = await offline(scope, () => mockResources(scope.project, scope.env, scope.range));
+    const mocked = await offline(scope, () =>
+      mockResources(scope.project, scope.env, scope.range),
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/resources")}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/resources")}?${query(scope)}`,
+    );
     mark("api");
     return adaptResources(remote) ?? emptyResources();
   },
 
   async errors(scope: Scope) {
-    const mocked = await offline(scope, () => mockErrors(scope.project, scope.env));
+    const mocked = await offline(scope, () =>
+      mockErrors(scope.project, scope.env),
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/errors")}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/errors")}?${query(scope)}`,
+    );
     mark("api");
     return adaptErrors(remote) ?? [];
   },
 
   async error(scope: Scope, fingerprint: string) {
-    const mocked = await offline(scope, () => mockError(scope.project, scope.env, fingerprint));
+    const mocked = await offline(scope, () =>
+      mockError(scope.project, scope.env, fingerprint),
+    );
     if (mocked !== undefined) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, `/errors/${encodeURIComponent(fingerprint)}`)}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, `/errors/${encodeURIComponent(fingerprint)}`)}?${query(scope)}`,
+    );
     mark("api");
     return adaptErrorDetail(remote);
   },
@@ -373,38 +474,55 @@ export const api = {
   },
 
   async incidents(scope: Scope) {
-    const mocked = await offline(scope, () => mockIncidents(scope.project, scope.env));
+    const mocked = await offline(scope, () =>
+      mockIncidents(scope.project, scope.env),
+    );
     if (mocked) return mergeIncidents(mocked);
-    const remote = await tryGet(`/incidents?project_id=${encodeURIComponent(scope.project)}&env=${scope.env}`);
+    const remote = await tryGet(
+      `/incidents?project_id=${encodeURIComponent(scope.project)}&env=${scope.env}`,
+    );
     mark("api");
     return mergeIncidents(adaptIncidents(remote, scope.project, scope.env));
   },
 
   async insights(scope: Scope): Promise<InsightPreview[]> {
-    const mocked = await offline(scope, () => mockOverview(scope.project, scope.env, scope.range).insights);
+    const mocked = await offline(
+      scope,
+      () => mockOverview(scope.project, scope.env, scope.range).insights,
+    );
     if (mocked) return mocked;
-    const remote = await tryGet(`${projectPath(scope.project, "/insights")}?${query(scope)}`);
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/insights")}?${query(scope)}`,
+    );
     mark("api");
     return adaptInsights(remote) ?? [];
   },
 
   async settings(scope: Scope) {
     const mocked = await offline(scope, () => mockSettings(scope.project));
-    if (mocked) return { ...mocked, apiKey: currentKey(scope.project, mocked.apiKey) };
+    if (mocked)
+      return { ...mocked, apiKey: currentKey(scope.project, mocked.apiKey) };
     const remote = await tryGet(projectPath(scope.project));
     mark("api");
-    const settings = adaptSettings(remote, scope.project) ?? blankSettings(scope.project);
-    return { ...settings, apiKey: currentKey(scope.project, settings.apiKey) };
+    const settings =
+      adaptSettings(remote, scope.project) ?? blankSettings(scope.project);
+    // Against the real API the key prefix comes from the server. Only the offline demo keeps a local key.
+    return settings;
   },
 
   async ack(id: string) {
     const result = await trySend(`/incidents/${id}/ack`, "POST");
     if (result.state === "down") ackIncident(id);
-    if (result.state === "error") throw new Error("Couldn’t acknowledge the incident");
+    if (result.state === "error")
+      throw new Error("Couldn’t acknowledge the incident");
   },
 
   async toggleRule(project: string, id: string, enabled: boolean) {
-    const result = await trySend(projectPath(project, `/alert-rules/${id}`), "PATCH", { enabled });
+    const result = await trySend(
+      projectPath(project, `/alert-rules/${id}`),
+      "PATCH",
+      { enabled },
+    );
     if (result.state === "down") setRuleEnabled(id, enabled);
     if (result.state === "error") throw new Error("Couldn’t update the rule");
   },
@@ -427,8 +545,14 @@ export const api = {
     );
   },
 
-  rotate(project: string) {
-    return rotateKey(project);
+  /** Replaces the project's ingest key and returns the new token, which is only ever shown once. */
+  async rotate(project: string): Promise<string> {
+    if (!(await probeApi())) return rotateKey(project);
+    const body = await sendJson(projectPath(project, "/api-key"), "POST");
+    const token = (body as { api_key?: { token?: unknown } } | null)?.api_key
+      ?.token;
+    if (typeof token !== "string") throw new Error("The key was not created");
+    return token;
   },
 
   async scans(project: string): Promise<ScanRun[]> {
@@ -445,13 +569,19 @@ export const api = {
     return scan;
   },
 
-  async scanAssets(id: string): Promise<{ summary: AssetSummary; assets: ScanAssetRow[] }> {
-    const remote = await tryGet(`/scans/${encodeURIComponent(id)}/assets?limit=500`);
+  async scanAssets(
+    id: string,
+  ): Promise<{ summary: AssetSummary; assets: ScanAssetRow[] }> {
+    const remote = await tryGet(
+      `/scans/${encodeURIComponent(id)}/assets?limit=500`,
+    );
     mark("api");
     return adaptScanAssets(remote);
   },
 
-  async scanApis(id: string): Promise<{ endpoints: ScanEndpoint[]; requests: ScanRequest[] }> {
+  async scanApis(
+    id: string,
+  ): Promise<{ endpoints: ScanEndpoint[]; requests: ScanRequest[] }> {
     const remote = await tryGet(`/scans/${encodeURIComponent(id)}/apis`);
     mark("api");
     return adaptScanApis(remote);
@@ -463,19 +593,100 @@ export const api = {
     return adaptScanPages(remote);
   },
 
-  saveScanConfig(project: string, scan: ScanSetup) {
-    return sendJson(projectPath(project, "/scan-config"), "PATCH", {
-      repository_path: scan.repositoryPath || null,
-      base_url: scan.baseUrl || null,
-      routes: scan.routes,
-      viewport: { width: scan.viewportWidth, height: scan.viewportHeight },
-      timeout_ms: scan.timeoutMs,
-      start_command: scan.startCommand || null,
-    });
+  async vitalsSummary(scope: Scope, filters: VitalFilters) {
+    const mocked = await offline(scope, () => mockSummary(filters));
+    if (mocked) return mocked;
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/vitals/summary")}?${vitalsQuery(scope, filters)}`,
+    );
+    mark("api");
+    return adaptVitalsSummary(remote);
   },
 
-  startScan(project: string, mode: "static" | "browser" | "full") {
-    return sendJson(projectPath(project, "/scans"), "POST", { mode }).then((body) => adaptScan(body));
+  async vitalsRoutes(scope: Scope, filters: VitalFilters) {
+    const mocked = await offline(scope, () => mockRoutes());
+    if (mocked) return mocked;
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/vitals/routes")}?${vitalsQuery(scope, filters)}`,
+    );
+    mark("api");
+    return adaptVitalsRoutes(remote);
+  },
+
+  async vitalsDetail(scope: Scope, route: string, filters: VitalFilters) {
+    const mocked = await offline(scope, () => mockDetail(route));
+    if (mocked) return mocked;
+    const remote = await tryGet(
+      `${projectPath(scope.project, "/vitals/detail")}?${vitalsQuery(scope, filters, { route })}`,
+    );
+    mark("api");
+    return adaptVitalsDetail(remote, route);
+  },
+
+  async vitalsLab(scope: Scope) {
+    const mocked = await offline(scope, () => mockLab());
+    if (mocked) return mocked;
+    const remote = await tryGet(`${projectPath(scope.project, "/vitals/lab")}`);
+    mark("api");
+    return adaptVitalsLab(remote);
+  },
+
+  saveScanConfig(project: string, scan: ScanSetup) {
+    return sendJson(
+      projectPath(project, "/scan-config"),
+      "PATCH",
+      scanConfigBody(scan),
+    );
+  },
+
+  /** Creates a project with its scan setup in one request. A bad path creates nothing. */
+  async createProject(
+    name: string,
+    scan: ScanSetup,
+  ): Promise<{ slug: string; name: string; apiKey: string }> {
+    const body = await sendJson("/projects", "POST", {
+      name,
+      scan_config: scanConfigBody(scan),
+    });
+    const project =
+      (body && typeof body === "object"
+        ? (
+            body as {
+              project?: {
+                slug?: unknown;
+                name?: unknown;
+                repository_path?: unknown;
+              };
+            }
+          ).project
+        : null) ?? null;
+    if (!project || typeof project.slug !== "string")
+      throw new Error("The project was not created");
+    // An API started before this feature ignores scan_config. Save the setup separately so it is not lost.
+    if (scan.repositoryPath && !project.repository_path) {
+      await sendJson(
+        projectPath(project.slug, "/scan-config"),
+        "PATCH",
+        scanConfigBody(scan),
+      );
+    }
+    const key = (body as { api_key?: { token?: unknown } }).api_key?.token;
+    return {
+      slug: project.slug,
+      name: typeof project.name === "string" ? project.name : name,
+      apiKey: typeof key === "string" ? key : "",
+    };
+  },
+
+  /** Permanently removes a project and everything stored for it. */
+  async deleteProject(project: string): Promise<void> {
+    await sendJson(projectPath(project), "DELETE");
+  },
+
+  startScan(project: string, mode: "static" | "browser" | "full" | "vitals") {
+    return sendJson(projectPath(project, "/scans"), "POST", { mode }).then(
+      (body) => adaptScan(body),
+    );
   },
 
   cancelScan(id: string) {

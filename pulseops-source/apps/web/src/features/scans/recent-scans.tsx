@@ -6,11 +6,12 @@ import { formatRelative } from "@/lib/format";
 import type { ScanRun } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-const MODE_LABEL: Record<string, string> = { static: "Static", browser: "Runtime", full: "Full" };
+const MODE_LABEL: Record<string, string> = { static: "Static", browser: "Runtime", full: "Full", vitals: "Web Vitals" };
 const MODE_HELP: Record<string, string> = {
   static: "Read the repository and checked source references.",
   browser: "Opened the routes in a browser.",
   full: "Read the repository and opened the routes.",
+  vitals: "Ran Lighthouse on each route. Results are on the Web Vitals page.",
 };
 
 const STATUS_STYLE: Record<string, string> = {

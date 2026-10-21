@@ -209,3 +209,136 @@ def test_insights_are_empty_without_assets():
     assert insights["total_assets"] == 0
     assert insights["large"] == []
     assert insights["unused_bytes"] == 0
+
+
+def test_scan_gate_allows_app_and_public_hosts_but_not_private_ones(monkeypatch):
+    import socket
+
+    from app.scan.browser import is_allowed_host
+
+    answers = {
+        "fakestoreapi.com": ["104.21.1.1"],
+        "internal.example": ["10.0.0.5"],
+        "metadata.example": ["169.254.169.254"],
+        "loop.example": ["127.0.0.1"],
+        "mixed.example": ["104.21.1.1", "192.168.1.9"],
+    }
+
+    def fake_getaddrinfo(host, *_args, **_kwargs):
+        if host not in answers:
+            raise socket.gaierror("no such host")
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 0)) for address in answers[host]]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+    decisions: dict[str, bool] = {}
+    assert is_allowed_host("localhost", "localhost", decisions)
+    assert is_allowed_host("", "localhost", decisions)
+    assert is_allowed_host("fakestoreapi.com", "localhost", decisions)
+    for blocked in ("internal.example", "metadata.example", "loop.example", "mixed.example", "unknown.example", "db.local", "127.0.0.1"):
+        assert not is_allowed_host(blocked, "localhost", decisions), blocked
+
+
+def test_vital_rating_follows_web_vitals_thresholds():
+    from app.vitals import rate, worst
+
+    assert rate("LCP", 2500) == "good"
+    assert rate("LCP", 2501) == "needs-improvement"
+    assert rate("LCP", 4001) == "poor"
+    assert rate("INP", 200) == "good"
+    assert rate("INP", 501) == "poor"
+    assert rate("CLS", 0.1) == "good"
+    assert rate("CLS", 0.26) == "poor"
+    assert rate("LCP", None) is None
+    assert rate("BOGUS", 1) is None
+    assert worst(["good", None, "poor", "needs-improvement"]) == "poor"
+    assert worst([None, None]) is None
+
+
+def test_vital_route_drops_query_and_fragment():
+    from app.schemas import clean_route
+
+    assert clean_route("/orders/42?token=secret#top") == "/orders/42"
+    assert clean_route("?x=1") == "/"
+    assert clean_route("/plain") == "/plain"
+
+
+def test_vital_percentile_is_withheld_below_the_sample_floor():
+    from app.vitals import _p75
+
+    assert _p75("LCP", 19, 3000.0, 20) is None
+    assert _p75("LCP", 20, 3000.04, 20) == 3000.0
+    assert _p75("CLS", 25, 0.123456, 20) == 0.1235
+    assert _p75("LCP", 50, None, 20) is None
+
+
+def _audit(value=None, items=None):
+    audit = {"numericValue": value}
+    if items is not None:
+        audit["details"] = {"items": items}
+    return audit
+
+
+def _report(**overrides):
+    audits = {
+        "largest-contentful-paint": _audit(5200),
+        "cumulative-layout-shift": _audit(0.31),
+        "total-blocking-time": _audit(750),
+        "first-contentful-paint": _audit(1500),
+        "speed-index": _audit(4000),
+        "server-response-time": _audit(900),
+        "network-requests": _audit(
+            items=[
+                {"url": "http://app/hero.jpg", "resourceType": "Image", "transferSize": 1_900_000},
+                {"url": "http://app/app.js", "resourceType": "Script", "transferSize": 650_000},
+                {
+                    "url": "http://app/api/summary",
+                    "resourceType": "Fetch",
+                    "transferSize": 400,
+                    "networkRequestTime": 100,
+                    "networkEndTime": 1100,
+                },
+            ]
+        ),
+        "long-tasks": _audit(items=[{"url": "http://app/app.js", "duration": 900, "startTime": 1000}]),
+        "bootup-time": _audit(items=[{"url": "http://app/app.js", "scripting": 800}]),
+        "render-blocking-resources": _audit(items=[{"url": "http://app/site.css", "wastedMs": 300}]),
+    }
+    audits.update(overrides)
+    return {"categories": {"performance": {"score": 0.42}}, "audits": audits}
+
+
+def test_lighthouse_report_is_parsed_into_a_lab_page_with_diagnosis():
+    from app.scan.lighthouse import parse_report
+
+    page = parse_report(_report(), "/", "mobile")
+    assert page["metric_source"] == "lab"
+    assert page["form_factor"] == "mobile"
+    assert page["perf_score"] == 42
+    assert page["lcp_ms"] == 5200
+    assert page["inp_ms"] is None
+    assert page["tbt_ms"] == 750
+    assert page["resource_count"] == 3
+    assert page["total_transfer_bytes"] == 1_900_000 + 650_000 + 400
+    assert page["resource_summary_json"]["Image"] == {"count": 1, "bytes": 1_900_000}
+    assert page["script_ms"] == 800
+    ids = {item["id"] for item in page["diagnosis_json"]}
+    assert {"large_image", "blocking_api", "long_js_task", "render_blocking", "layout_shift", "slow_server"} <= ids
+    for item in page["diagnosis_json"]:
+        assert item["evidence"] and item["action"]
+
+
+def test_lighthouse_report_with_nothing_wrong_has_no_diagnosis():
+    from app.scan.lighthouse import parse_report
+
+    clean = _report(
+        **{
+            "largest-contentful-paint": _audit(1200),
+            "cumulative-layout-shift": _audit(0.01),
+            "total-blocking-time": _audit(20),
+            "server-response-time": _audit(80),
+            "network-requests": _audit(items=[{"url": "http://app/app.js", "resourceType": "Script", "transferSize": 40_000}]),
+            "long-tasks": _audit(items=[]),
+            "render-blocking-resources": _audit(items=[]),
+        }
+    )
+    assert parse_report(clean, "/", "desktop")["diagnosis_json"] == []
