@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScanProgress } from "@/features/scans/scan-progress";
 import { LabSection } from "@/features/web-vitals/route-detail";
 import { formatBytes, formatDuration } from "@/features/web-vitals/format";
-import { Segmented, SourceBanner } from "@/features/web-vitals/shared";
+import { Segmented } from "@/components/shared/segmented";
+import { SourceBanner } from "@/features/web-vitals/shared";
 import {
   useScansQuery,
   useSettingsQuery,

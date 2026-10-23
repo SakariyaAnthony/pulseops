@@ -71,6 +71,17 @@ import {
   mockSummary,
   type VitalFilters,
 } from "@/lib/api/vitals";
+import {
+  adaptUser,
+  adaptUsersPage,
+  mockUpdateUser,
+  mockUsersPage,
+  type UserFilters,
+  type UserRole,
+  type UserRow,
+  type UsersPage,
+} from "@/lib/api/users";
+import { useSession } from "@/store/session";
 import { useUi } from "@/store/ui";
 
 const DEMO_EMAIL = "demo@pulseops.dev";
@@ -316,14 +327,25 @@ export const api = {
           },
           body: JSON.stringify({ email, password }),
         });
-        if (response.status === 401 || response.status === 403) {
+        if (response.status === 403) {
+          // A disabled account gets its own message from the API.
+          const detail = (await response.json().catch(() => null)) as {
+            detail?: unknown;
+          } | null;
+          throw new Error(
+            typeof detail?.detail === "string"
+              ? detail.detail
+              : "Those credentials were rejected.",
+          );
+        }
+        if (response.status === 401) {
           throw new Error("Those credentials were rejected.");
         }
         if (response.ok) {
           const body = (await response.json()) as {
             access_token?: string;
             token?: string;
-            user?: { email?: string; name?: string };
+            user?: { email?: string; name?: string; role?: string };
           };
           const token = body.access_token || body.token;
           if (token) {
@@ -331,13 +353,15 @@ export const api = {
               token,
               email: body.user?.email || email,
               name: body.user?.name || email.split("@")[0] || "Operator",
+              role: body.user?.role === "admin" ? "admin" : "member",
             };
           }
         }
       } catch (error) {
         if (
           error instanceof Error &&
-          error.message === "Those credentials were rejected."
+          (error.message === "Those credentials were rejected." ||
+            error.message.startsWith("This account is disabled"))
         )
           throw error;
       }
@@ -350,11 +374,110 @@ export const api = {
         token: "demo.pulseops.token",
         email: DEMO_EMAIL,
         name: "Demo Operator",
+        role: "admin",
       };
     }
     throw new Error(
       "Use demo@pulseops.dev and pulseops-demo while the API is offline.",
     );
+  },
+
+  /** Creates an account and signs it in. Needs the API: there is nowhere to keep an account offline. */
+  async register(
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<SessionUser> {
+    if (!(await probeApi()))
+      throw new Error("The API is not running, so an account cannot be created.");
+    const body = (await sendJson("/auth/register", "POST", {
+      name,
+      email,
+      password,
+    })) as {
+      access_token?: string;
+      user?: { email?: string; name?: string; role?: string };
+    } | null;
+    if (!body?.access_token) throw new Error("Sign-up did not return a session.");
+    return {
+      token: body.access_token,
+      email: body.user?.email || email.trim().toLowerCase(),
+      name: body.user?.name || name,
+      role: body.user?.role === "admin" ? "admin" : "member",
+    };
+  },
+
+  /** Full profile for the Profile page. Offline it is built from the saved session. */
+  async profile(): Promise<UserRow> {
+    if (!(await probeApi())) {
+      const session = useSession.getState();
+      return {
+        id: "local",
+        email: session.email ?? "",
+        name: session.name ?? "Operator",
+        role: session.role ?? "member",
+        isActive: true,
+        createdAt: "",
+        lastLoginAt: new Date().toISOString(),
+        projectCount: 0,
+      };
+    }
+    const user = adaptUser(await sendJson("/auth/me", "GET"));
+    if (!user) throw new Error("The profile could not be loaded.");
+    return user;
+  },
+
+  async updateProfile(name: string): Promise<UserRow> {
+    if (!(await probeApi()))
+      throw new Error("The API is not running, so the profile cannot be saved.");
+    const user = adaptUser(await sendJson("/auth/me", "PATCH", { name }));
+    if (!user) throw new Error("The profile could not be saved.");
+    return user;
+  },
+
+  async changePassword(current: string, next: string): Promise<void> {
+    if (!(await probeApi()))
+      throw new Error("The API is not running, so the password cannot be changed.");
+    await sendJson("/auth/password", "POST", {
+      current_password: current,
+      new_password: next,
+    });
+  },
+
+  /** The signed-in account as the API sees it. Null when the API is down. */
+  async me(): Promise<Omit<SessionUser, "token"> | null> {
+    if (!(await probeApi())) return null;
+    const user = adaptUser(await sendJson("/auth/me", "GET"));
+    return user ? { email: user.email, name: user.name, role: user.role } : null;
+  },
+
+  async users(filters: UserFilters): Promise<UsersPage> {
+    if (!(await probeApi())) {
+      mark("mock");
+      await pause();
+      return mockUsersPage(filters);
+    }
+    const params = new URLSearchParams({ limit: "200" });
+    if (filters.search.trim()) params.set("search", filters.search.trim());
+    if (filters.role !== "all") params.set("role", filters.role);
+    if (filters.status !== "all") params.set("status", filters.status);
+    mark("api");
+    return adaptUsersPage(await sendJson(`/users?${params.toString()}`, "GET"));
+  },
+
+  async updateUser(
+    id: string,
+    patch: { role?: UserRole; isActive?: boolean },
+  ): Promise<UserRow> {
+    if (!(await probeApi())) return mockUpdateUser(id, patch);
+    const body: Record<string, unknown> = {};
+    if (patch.role) body.role = patch.role;
+    if (patch.isActive !== undefined) body.is_active = patch.isActive;
+    const updated = adaptUser(
+      await sendJson(`/users/${encodeURIComponent(id)}`, "PATCH", body),
+    );
+    if (!updated) throw new Error("The user could not be updated.");
+    return updated;
   },
 
   async projects(chaos = false): Promise<Project[]> {

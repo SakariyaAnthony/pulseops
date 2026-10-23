@@ -22,7 +22,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
     projects: Mapped[list[Project]] = relationship(back_populates="owner")
 

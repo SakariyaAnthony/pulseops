@@ -1,12 +1,25 @@
 import { useNavigate } from "react-router-dom";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { NAV } from "@/components/layout/nav-items";
 import { useProjectsQuery } from "@/hooks/queries";
 import { PROJECTS } from "@/lib/api/mock";
 import { ENVIRONMENTS, TIME_RANGES } from "@/lib/api/types";
 import { RANGE_LABEL, withScope } from "@/lib/scope";
 import { useScope } from "@/hooks/use-scope";
+import { useSession } from "@/store/session";
 import { useUi } from "@/store/ui";
 
 export function CommandPalette() {
@@ -16,9 +29,10 @@ export function CommandPalette() {
   const live = useUi((state) => state.live);
   const toggleCollapsed = useUi((state) => state.toggleCollapsed);
   const scope = useScope();
+  const role = useSession((state) => state.role);
   const projects = useProjectsQuery();
   const navigate = useNavigate();
-  const projectList = projects.data?.length ? projects.data : PROJECTS;
+  const projectList = projects.isSuccess ? projects.data : PROJECTS;
 
   const go = (path: string) => {
     navigate(withScope(path, scope));
@@ -29,18 +43,30 @@ export function CommandPalette() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <DialogDescription className="sr-only">Jump to a view, project, environment, or time range.</DialogDescription>
+        <DialogDescription className="sr-only">
+          Jump to a view, project, environment, or time range.
+        </DialogDescription>
         <Command>
           <CommandInput placeholder="Jump to a view, project, or range" />
           <CommandList>
             <CommandEmpty>No matches.</CommandEmpty>
             <CommandGroup heading="Navigate">
-              {NAV.map((item) => (
-                <CommandItem key={item.to} value={item.label} onSelect={() => go(item.to)}>
-                  {item.label}
-                  {item.soon ? <span className="ml-auto text-[10px] uppercase text-mute">Soon</span> : null}
-                </CommandItem>
-              ))}
+              {NAV.filter((item) => !item.admin || role === "admin").map(
+                (item) => (
+                  <CommandItem
+                    key={item.to}
+                    value={item.label}
+                    onSelect={() => go(item.to)}
+                  >
+                    {item.label}
+                    {item.soon ? (
+                      <span className="ml-auto text-[10px] uppercase text-mute">
+                        Soon
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                ),
+              )}
             </CommandGroup>
             <CommandGroup heading="Time range">
               {TIME_RANGES.map((range) => (
@@ -105,7 +131,9 @@ export function CommandPalette() {
               </CommandItem>
             </CommandGroup>
           </CommandList>
-          <div className="border-t border-line px-3 py-2 text-[11px] text-mute">Alt+1 through Alt+5 change the time range · Esc closes</div>
+          <div className="border-t border-line px-3 py-2 text-[11px] text-mute">
+            Alt+1 through Alt+5 change the time range · Esc closes
+          </div>
         </Command>
       </DialogContent>
     </Dialog>

@@ -17,7 +17,15 @@ def iso(value: datetime | None) -> str | None:
 
 
 def user_out(user: User) -> dict:
-    return {"id": str(user.id), "email": user.email, "name": user.name}
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "created_at": iso(user.created_at),
+        "last_login_at": iso(user.last_login_at),
+    }
 
 
 def project_out(db: Session, project: Project, *, include_demo_token: bool = True) -> dict:

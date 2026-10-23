@@ -5,7 +5,7 @@ import { InlineError } from "@/components/shared/states";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FieldTab } from "@/features/web-vitals/field-tab";
 import { LabTab } from "@/features/web-vitals/lab-tab";
-import { Segmented } from "@/features/web-vitals/shared";
+import { Segmented } from "@/components/shared/segmented";
 import {
   useVitalsLabQuery,
   useVitalsRoutesQuery,

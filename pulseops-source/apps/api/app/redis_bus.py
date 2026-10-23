@@ -53,3 +53,19 @@ def remember_refresh(jti: str, ttl_seconds: int) -> bool:
     except Exception:
         logger.warning("refresh denylist skipped", exc_info=True)
         return True
+
+
+def enforce_window_limit(scope: str, subject: str, limit: int, window_seconds: int) -> None:
+    """Fixed-window limit for sensitive public endpoints such as sign-up. Fails open if Redis is down."""
+    try:
+        client = _client()
+        bucket = f"pulseops:win:{scope}:{subject}:{int(time.time()) // window_seconds}"
+        count = int(client.incr(bucket))
+        if count == 1:
+            client.expire(bucket, window_seconds * 2)
+        if count > limit:
+            raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning("window limit skipped", exc_info=True)

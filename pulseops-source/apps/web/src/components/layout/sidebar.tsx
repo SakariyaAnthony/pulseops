@@ -6,6 +6,7 @@ import { NAV } from "@/components/layout/nav-items";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScope } from "@/hooks/use-scope";
 import { withScope } from "@/lib/scope";
+import { useSession } from "@/store/session";
 import { useUi } from "@/store/ui";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ export function Sidebar({
   const inSheet = Boolean(onNavigate);
   const collapsed = storedCollapsed && !inSheet;
   const live = source === "api";
+  const role = useSession((state) => state.role);
+  const items = NAV.filter((item) => !item.admin || role === "admin");
 
   return (
     <LayoutGroup id={inSheet ? "nav-sheet" : "nav-desktop"}>
@@ -96,93 +99,95 @@ export function Sidebar({
                   </p>
                 )}
                 <ul className="space-y-0.5">
-                  {NAV.filter((item) => item.group === group).map((item) => {
-                    const Icon = item.icon;
-                    const showBadge = item.to === "/alerts" && alertCount > 0;
-                    const link = (
-                      <NavLink
-                        to={withScope(item.to, scope)}
-                        onClick={onNavigate}
-                        aria-label={collapsed ? item.label : undefined}
-                        className={({ isActive }) =>
-                          cn(
-                            "group relative flex items-center gap-3 rounded-xl px-1.5 py-1 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-violet/60",
-                            collapsed && "justify-center px-0",
-                            isActive
-                              ? "text-ink"
-                              : "text-dim hover:bg-white/[0.04] hover:text-ink",
-                          )
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            {isActive ? (
-                              <motion.span
-                                layoutId="nav-active"
-                                transition={
-                                  reduceMotion
-                                    ? { duration: 0 }
-                                    : {
-                                        type: "spring",
-                                        stiffness: 500,
-                                        damping: 40,
-                                      }
-                                }
-                                className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet/25 via-violet/10 to-transparent ring-1 ring-inset ring-violet/30"
-                                aria-hidden
-                              />
-                            ) : null}
-                            {isActive && !collapsed ? (
-                              <span
-                                className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-violet to-cyan shadow-glow"
-                                aria-hidden
-                              />
-                            ) : null}
-                            <span
-                              className={cn(
-                                "relative grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-all",
-                                isActive
-                                  ? "bg-gradient-to-br from-violet to-violet/70 text-white shadow-glow"
-                                  : "bg-white/[0.04] text-dim group-hover:bg-white/10 group-hover:text-ink",
-                              )}
-                            >
-                              <Icon className="h-4 w-4" />
-                              {collapsed && showBadge ? (
-                                <span
-                                  className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-base"
+                  {items
+                    .filter((item) => item.group === group)
+                    .map((item) => {
+                      const Icon = item.icon;
+                      const showBadge = item.to === "/alerts" && alertCount > 0;
+                      const link = (
+                        <NavLink
+                          to={withScope(item.to, scope)}
+                          onClick={onNavigate}
+                          aria-label={collapsed ? item.label : undefined}
+                          className={({ isActive }) =>
+                            cn(
+                              "group relative flex items-center gap-3 rounded-xl px-1.5 py-1 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-violet/60",
+                              collapsed && "justify-center px-0",
+                              isActive
+                                ? "text-ink"
+                                : "text-dim hover:bg-white/[0.04] hover:text-ink",
+                            )
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              {isActive ? (
+                                <motion.span
+                                  layoutId="nav-active"
+                                  transition={
+                                    reduceMotion
+                                      ? { duration: 0 }
+                                      : {
+                                          type: "spring",
+                                          stiffness: 500,
+                                          damping: 40,
+                                        }
+                                  }
+                                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet/25 via-violet/10 to-transparent ring-1 ring-inset ring-violet/30"
                                   aria-hidden
                                 />
                               ) : null}
-                            </span>
-                            {collapsed ? null : (
-                              <span className="relative truncate">
-                                {item.label}
+                              {isActive && !collapsed ? (
+                                <span
+                                  className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-violet to-cyan shadow-glow"
+                                  aria-hidden
+                                />
+                              ) : null}
+                              <span
+                                className={cn(
+                                  "relative grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-all",
+                                  isActive
+                                    ? "bg-gradient-to-br from-violet to-violet/70 text-white shadow-glow"
+                                    : "bg-white/[0.04] text-dim group-hover:bg-white/10 group-hover:text-ink",
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                {collapsed && showBadge ? (
+                                  <span
+                                    className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-base"
+                                    aria-hidden
+                                  />
+                                ) : null}
                               </span>
-                            )}
-                            {!collapsed && item.soon ? (
-                              <span className="relative ml-auto rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-mute">
-                                Soon
-                              </span>
-                            ) : null}
-                            {!collapsed && showBadge ? (
-                              <span className="relative ml-auto min-w-5 rounded-full bg-danger/20 px-1.5 text-center text-[10px] font-semibold text-danger ring-1 ring-inset ring-danger/30">
-                                {alertCount}
-                              </span>
-                            ) : null}
-                          </>
-                        )}
-                      </NavLink>
-                    );
-                    return (
-                      <li key={item.to}>
-                        {collapsed ? (
-                          <Tooltip content={item.label}>{link}</Tooltip>
-                        ) : (
-                          link
-                        )}
-                      </li>
-                    );
-                  })}
+                              {collapsed ? null : (
+                                <span className="relative truncate">
+                                  {item.label}
+                                </span>
+                              )}
+                              {!collapsed && item.soon ? (
+                                <span className="relative ml-auto rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-mute">
+                                  Soon
+                                </span>
+                              ) : null}
+                              {!collapsed && showBadge ? (
+                                <span className="relative ml-auto min-w-5 rounded-full bg-danger/20 px-1.5 text-center text-[10px] font-semibold text-danger ring-1 ring-inset ring-danger/30">
+                                  {alertCount}
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                        </NavLink>
+                      );
+                      return (
+                        <li key={item.to}>
+                          {collapsed ? (
+                            <Tooltip content={item.label}>{link}</Tooltip>
+                          ) : (
+                            link
+                          )}
+                        </li>
+                      );
+                    })}
                 </ul>
               </div>
             ))}

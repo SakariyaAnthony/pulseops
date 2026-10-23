@@ -8,6 +8,8 @@ import {
   // GitBranch,
   LayoutDashboard,
   Settings,
+  UserRound,
+  Users,
   ScanSearch,
   Sparkles,
   type LucideIcon,
@@ -18,6 +20,8 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   soon?: boolean;
+  /** Shown to admins only. */
+  admin?: boolean;
   group: string;
 };
 
@@ -33,5 +37,7 @@ export const NAV: NavItem[] = [
   { to: "/scans", label: "Assets", icon: ScanSearch, group: "Scan" },
   { to: "/insights", label: "Insights", icon: Sparkles, group: "Detect" },
   { to: "/alerts", label: "Alerts", icon: Bell, group: "Detect" },
+  { to: "/profile", label: "Profile", icon: UserRound, group: "Configure" },
+  { to: "/users", label: "Users", icon: Users, group: "Configure", admin: true },
   { to: "/settings", label: "Settings", icon: Settings, group: "Configure" },
 ];

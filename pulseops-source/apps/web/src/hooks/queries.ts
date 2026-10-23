@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { buildCapture } from "@/lib/api/adapt";
 import { useScope } from "@/hooks/use-scope";
+import type { UserFilters } from "@/lib/api/users";
 import type { VitalFilters } from "@/lib/api/vitals";
 import { useUi } from "@/store/ui";
 
@@ -239,7 +240,15 @@ export function useVitalsSummaryQuery(filters: VitalFilters) {
   const scope = useScope();
   const interval = useLiveInterval();
   return useQuery({
-    queryKey: ["vitals-summary", scope.project, scope.env, scope.range, scope.chaos, filters.device, filters.nav],
+    queryKey: [
+      "vitals-summary",
+      scope.project,
+      scope.env,
+      scope.range,
+      scope.chaos,
+      filters.device,
+      filters.nav,
+    ],
     queryFn: () => api.vitalsSummary(scope, filters),
     placeholderData: keepPreviousData,
     refetchInterval: interval,
@@ -250,17 +259,37 @@ export function useVitalsRoutesQuery(filters: VitalFilters) {
   const scope = useScope();
   const interval = useLiveInterval();
   return useQuery({
-    queryKey: ["vitals-routes", scope.project, scope.env, scope.range, scope.chaos, filters.device, filters.nav],
+    queryKey: [
+      "vitals-routes",
+      scope.project,
+      scope.env,
+      scope.range,
+      scope.chaos,
+      filters.device,
+      filters.nav,
+    ],
     queryFn: () => api.vitalsRoutes(scope, filters),
     placeholderData: keepPreviousData,
     refetchInterval: interval,
   });
 }
 
-export function useVitalsDetailQuery(route: string | null, filters: VitalFilters) {
+export function useVitalsDetailQuery(
+  route: string | null,
+  filters: VitalFilters,
+) {
   const scope = useScope();
   return useQuery({
-    queryKey: ["vitals-detail", route, scope.project, scope.env, scope.range, scope.chaos, filters.device, filters.nav],
+    queryKey: [
+      "vitals-detail",
+      route,
+      scope.project,
+      scope.env,
+      scope.range,
+      scope.chaos,
+      filters.device,
+      filters.nav,
+    ],
     queryFn: () => api.vitalsDetail(scope, route ?? "", filters),
     enabled: Boolean(route),
     placeholderData: keepPreviousData,
@@ -273,4 +302,17 @@ export function useVitalsLabQuery() {
     queryKey: ["vitals-lab", scope.project, scope.chaos],
     queryFn: () => api.vitalsLab(scope),
   });
+}
+
+export function useUsersQuery(filters: UserFilters, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ["users", filters.search, filters.role, filters.status],
+    queryFn: () => api.users(filters),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useProfileQuery() {
+  return useQuery({ queryKey: ["profile"], queryFn: () => api.profile() });
 }

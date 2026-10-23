@@ -54,8 +54,10 @@ export function TopBar({
   const source = useUi((state) => state.source);
   const name = useSession((state) => state.name) ?? "Operator";
   const email = useSession((state) => state.email);
+  const role = useSession((state) => state.role);
   const clear = useSession((state) => state.clear);
-  const list = projects.data?.length ? projects.data : PROJECTS;
+  // An account with no projects shows an empty list. The sample projects are only for the offline demo.
+  const list = projects.isSuccess ? projects.data : PROJECTS;
   const nameCount = new Map<string, number>();
   for (const project of list)
     nameCount.set(project.name, (nameCount.get(project.name) ?? 0) + 1);
@@ -103,8 +105,10 @@ export function TopBar({
         <SelectTrigger className="w-40" aria-label="Project">
           <SelectValue>
             <span className="block truncate">
-              {list.find((project) => project.slug === scope.project)?.name ??
-                scope.project}
+              {list.length === 0
+                ? "No projects"
+                : (list.find((project) => project.slug === scope.project)
+                    ?.name ?? scope.project)}
             </span>
           </SelectValue>
         </SelectTrigger>
@@ -260,8 +264,27 @@ export function TopBar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{email ?? name}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <span className="block truncate">{email ?? name}</span>
+                {role ? (
+                  <span className="block text-[10px] font-normal uppercase tracking-[0.14em] text-mute">
+                    {role}
+                  </span>
+                ) : null}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => navigate(withScope("/profile", scope))}
+              >
+                Profile
+              </DropdownMenuItem>
+              {role === "admin" ? (
+                <DropdownMenuItem
+                  onSelect={() => navigate(withScope("/users", scope))}
+                >
+                  Users
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onSelect={() => navigate(withScope("/settings", scope))}
               >

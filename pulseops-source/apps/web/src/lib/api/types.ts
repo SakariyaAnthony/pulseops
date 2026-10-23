@@ -381,6 +381,7 @@ export type SessionUser = {
   token: string;
   email: string;
   name: string;
+  role: "admin" | "member";
 };
 
 export type RuleInput = {

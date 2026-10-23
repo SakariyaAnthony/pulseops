@@ -30,6 +30,37 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
+def _clean_email(value: str) -> str:
+    return str(value).strip().lower()
+
+
+def _clean_name(value: str) -> str:
+    return " ".join(str(value).split())
+
+
+class RegisterIn(BaseModel):
+    name: Annotated[str, BeforeValidator(_clean_name), Field(min_length=1, max_length=120)]
+    email: Annotated[str, BeforeValidator(_clean_email), Field(min_length=5, max_length=255, pattern=EMAIL_PATTERN)]
+    password: str = Field(min_length=8, max_length=128)
+
+
+class ProfileUpdateIn(BaseModel):
+    name: Annotated[str, BeforeValidator(_clean_name), Field(min_length=1, max_length=120)]
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class UserUpdateIn(BaseModel):
+    role: Literal["admin", "member"] | None = None
+    is_active: bool | None = None
+
+
 class RefreshIn(BaseModel):
     refresh_token: str = Field(min_length=10)
 

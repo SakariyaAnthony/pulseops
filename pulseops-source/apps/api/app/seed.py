@@ -195,6 +195,7 @@ def _ensure_identity(db) -> None:
             email=DEMO_EMAIL,
             name=DEMO_NAME,
             password_hash=hash_password(DEMO_PASSWORD),
+            role="admin",
         )
         db.add(user)
         db.flush()

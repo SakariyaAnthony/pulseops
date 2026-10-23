@@ -74,6 +74,22 @@ The overview should show the seeded shop traffic (about 95 ms average, not the o
 
 Ingest key for the demo project: `po_live_shop_api_demo_key`.
 
+### Create your own account
+
+Click **Create an account** on the sign-in page (or open `/register`). Enter a name, an email and a password of at least 8 characters. You are signed in straight away as a **member** with no projects, and the dashboard asks you to create your first project. Each account only sees its own projects.
+
+Passwords are stored as salted PBKDF2 hashes. Emails are case-insensitive and unique. Sign-up is limited to 10 attempts per hour per address (`PULSEOPS_REGISTER_LIMIT`). Set `PULSEOPS_ALLOW_REGISTRATION=false` in `apps/api/.env` to turn sign-up off.
+
+### Profile
+
+Every account has a **Profile** page (sidebar under Configure, or the account menu at the top right). It shows your name, email, role, member-since date, last sign-in and the projects you own. You can change your name and your password there. If the API is not running the page shows what is saved in the browser and cannot save changes.
+
+### Users (admins)
+
+The demo user is the first **admin**. Admins get a **Users** page under Configure that lists every account with role, status, project count, join date and last sign-in. From there an admin can search and filter, promote or demote a user, and disable or re-enable an account. A disabled user is signed out and sees "This account is disabled" at sign-in. You cannot demote or disable yourself, and the last active admin cannot be removed.
+
+The user table needs migration `005_user_accounts` (adds `role`, `is_active`, `last_login_at`, `updated_at`). Run `alembic upgrade head` from `apps/api`.
+
 ## 5. Scan a React app
 
 Follow [SCAN.md](SCAN.md). For page speed, the **Web Vitals** page shows real-user Core Web Vitals and on-demand Lighthouse audits (see SCAN.md section 8; Lighthouse needs `cd apps/api/tools/lighthouse && npm install` once). You can add a project from the dashboard with **+ New project** in the top bar (or **Edit setup** on the Assets page). One project holds the asset scan and API performance: capture the app's API calls from the API page, or connect live traffic from Settings.

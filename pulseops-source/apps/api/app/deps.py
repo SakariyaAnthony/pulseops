@@ -25,8 +25,14 @@ def get_current_user(
     except (ValueError, KeyError):
         raise HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})
     user = db.get(User, user_id)
-    if user is None:
+    if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
 
@@ -89,4 +95,6 @@ def authenticate(db: Session, email: str, password: str) -> User:
     if user is None or not verify_password(password, user.password_hash):
         verify_password(password, DUMMY_PASSWORD_HASH)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="This account is disabled. Ask an admin to enable it.")
     return user

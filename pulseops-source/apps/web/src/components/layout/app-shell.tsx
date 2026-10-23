@@ -14,11 +14,15 @@ import {
 } from "@/components/ui/sheet";
 import { useIncidentsQuery, useProjectsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
-import { probeApi } from "@/lib/api/client";
+import { FirstProject } from "@/features/onboarding/first-project";
+import { api, probeApi } from "@/lib/api/client";
 import { TIME_RANGES } from "@/lib/api/types";
 import { connectLive } from "@/lib/ws";
 import { useSession } from "@/store/session";
 import { useUi } from "@/store/ui";
+
+// Pages that make sense without a project.
+const ACCOUNT_PAGES = ["/profile", "/users"];
 
 export function AppShell() {
   const [params] = useSearchParams();
@@ -27,6 +31,7 @@ export function AppShell() {
   const [menu, setMenu] = useState(false);
   const [connected, setConnected] = useState(false);
   const token = useSession((state) => state.token);
+  const setSession = useSession((state) => state.setSession);
   const live = useUi((state) => state.live);
   const density = useUi((state) => state.density);
   const setCommandOpen = useUi((state) => state.setCommandOpen);
@@ -55,6 +60,25 @@ export function AppShell() {
       return;
     update({ project: list[0].slug });
   }, [projects.data, projects.isSuccess, scope.project, update]);
+
+  // The saved role can be stale: sessions saved before roles existed have none, and an admin may have
+  // changed it since. Ask the API once per page load.
+  useEffect(() => {
+    if (!token || token === "demo.pulseops.token") return;
+    let cancelled = false;
+    void api
+      .me()
+      .then((user) => {
+        if (cancelled || !user) return;
+        const current = useSession.getState();
+        if (current.role !== user.role || current.name !== user.name)
+          setSession({ ...user, token });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [token, setSession]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -102,6 +126,16 @@ export function AppShell() {
     };
   }, [client, live, scope.project, token]);
 
+  const noProjects =
+    projects.isSuccess &&
+    projects.data.length === 0 &&
+    token !== "demo.pulseops.token";
+  // The saved project is not one of this account's projects. Hold the page until the switch above lands.
+  const switching =
+    projects.isSuccess &&
+    projects.data.length > 0 &&
+    !projects.data.some((item) => item.slug === scope.project);
+
   return (
     <>
       <div className="aurora" aria-hidden />
@@ -125,7 +159,16 @@ export function AppShell() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                <Outlet />
+                {noProjects &&
+                !ACCOUNT_PAGES.some((path) =>
+                  location.pathname.startsWith(path),
+                ) ? (
+                  <FirstProject />
+                ) : switching ? (
+                  <PageSkeleton />
+                ) : (
+                  <Outlet />
+                )}
               </motion.div>
             </Suspense>
           </main>
