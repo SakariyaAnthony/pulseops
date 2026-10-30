@@ -243,6 +243,24 @@ class PageResult(Base):
     diagnosis_json: Mapped[list] = mapped_column(JSONB, default=list)
 
 
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    endpoint: Mapped[str] = mapped_column(Text, unique=True)
+    p256dh: Mapped[str] = mapped_column(Text)
+    auth: Mapped[str] = mapped_column(Text)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    severities: Mapped[list] = mapped_column(
+        JSONB, default=lambda: ["critical", "warning", "info"]
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ApiObservation(Base):
     __tablename__ = "api_observations"
 

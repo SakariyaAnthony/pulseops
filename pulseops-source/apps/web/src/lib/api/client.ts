@@ -44,9 +44,12 @@ import {
   PROJECTS,
 } from "@/lib/api/mock";
 import type {
+  Incident,
   InsightPreview,
   Overview,
   Project,
+  PushConfig,
+  PushSubscriptionInfo,
   ResourcesPayload,
   RuleInput,
   AssetSummary,
@@ -59,6 +62,7 @@ import type {
   Scope,
   SessionUser,
   SettingsPayload,
+  Severity,
 } from "@/lib/api/types";
 import {
   adaptVitalsDetail,
@@ -226,6 +230,20 @@ function scanConfigBody(scan: ScanSetup) {
     viewport: { width: scan.viewportWidth, height: scan.viewportHeight },
     timeout_ms: scan.timeoutMs,
     start_command: scan.startCommand || null,
+  };
+}
+
+function adaptPushSubscription(value: unknown): PushSubscriptionInfo {
+  const record = (value ?? {}) as { id?: unknown; endpoint?: unknown; severities?: unknown };
+  const severities = Array.isArray(record.severities)
+    ? record.severities.filter((item): item is Severity =>
+        item === "critical" || item === "warning" || item === "info",
+      )
+    : [];
+  return {
+    id: String(record.id ?? ""),
+    endpoint: String(record.endpoint ?? ""),
+    severities,
   };
 }
 
@@ -638,6 +656,50 @@ export const api = {
     if (result.state === "down") ackIncident(id);
     if (result.state === "error")
       throw new Error("Couldn’t acknowledge the incident");
+  },
+
+  /** Opens a real firing incident for the rule, which also sends the in-app banner and the push message. */
+  async fireTestIncident(project: string, ruleId: string): Promise<Incident> {
+    const body = await sendJson(
+      projectPath(project, `/alert-rules/${encodeURIComponent(ruleId)}/test`),
+      "POST",
+    );
+    const [incident] = adaptIncidents([body], project);
+    if (!incident) throw new Error("The test incident was not created");
+    return incident;
+  },
+
+  async pushConfig(): Promise<PushConfig> {
+    const remote = (await tryGet("/push/vapid-key")) as {
+      enabled?: unknown;
+      public_key?: unknown;
+    } | null;
+    return {
+      enabled: remote?.enabled === true,
+      publicKey: typeof remote?.public_key === "string" ? remote.public_key : null,
+    };
+  },
+
+  async savePushSubscription(
+    subscription: PushSubscriptionJSON,
+    severities: Severity[],
+  ): Promise<PushSubscriptionInfo> {
+    const body = await sendJson("/push/subscriptions", "POST", {
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+      severities,
+      user_agent: navigator.userAgent.slice(0, 512),
+    });
+    return adaptPushSubscription(body);
+  },
+
+  async updatePushSeverities(id: string, severities: Severity[]): Promise<PushSubscriptionInfo> {
+    const body = await sendJson(`/push/subscriptions/${encodeURIComponent(id)}`, "PATCH", { severities });
+    return adaptPushSubscription(body);
+  },
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await sendJson("/push/subscriptions", "DELETE", { endpoint });
   },
 
   async toggleRule(project: string, id: string, enabled: boolean) {

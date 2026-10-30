@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import AlertIncident, AlertRule, ApiKey, Environment, Project, User
+from app.models import AlertIncident, AlertRule, ApiKey, Environment, Project, PushSubscription, User
 from app.stats import to_ms
 
 
@@ -105,6 +105,17 @@ def incident_out(incident: AlertIncident, *, replay: bool = False) -> dict:
     if replay:
         payload["replay"] = True
     return payload
+
+
+def push_subscription_out(row: PushSubscription) -> dict:
+    return {
+        "id": str(row.id),
+        "endpoint": row.endpoint,
+        "severities": list(row.severities or []),
+        "user_agent": row.user_agent,
+        "created_at": iso(row.created_at),
+        "last_seen_at": iso(row.last_seen_at),
+    }
 
 
 def deploy_marker(time: datetime, version: str) -> dict:

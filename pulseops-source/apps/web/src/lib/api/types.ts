@@ -113,6 +113,17 @@ export type Incident = {
   env: EnvName;
 };
 
+export type PushConfig = {
+  enabled: boolean;
+  publicKey: string | null;
+};
+
+export type PushSubscriptionInfo = {
+  id: string;
+  endpoint: string;
+  severities: Severity[];
+};
+
 export type AlertRule = {
   id: string;
   project: string;

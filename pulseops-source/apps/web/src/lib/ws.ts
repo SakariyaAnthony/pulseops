@@ -5,9 +5,11 @@ type LiveHandlers = {
   token: string;
   onStatus: (connected: boolean) => void;
   onSnapshot: () => void;
+  /** A newly triggered incident. Replays of incidents that were already firing on connect are skipped. */
+  onAlert?: (incident: unknown) => void;
 };
 
-export function connectLive({ projectId, token, onStatus, onSnapshot }: LiveHandlers) {
+export function connectLive({ projectId, token, onStatus, onSnapshot, onAlert }: LiveHandlers) {
   let stopped = false;
   let attempt = 0;
   let socket: WebSocket | null = null;
@@ -36,9 +38,14 @@ export function connectLive({ projectId, token, onStatus, onSnapshot }: LiveHand
     };
     socket.onmessage = (event) => {
       try {
-        const payload = JSON.parse(String(event.data)) as { type?: string; event?: string };
+        const payload = JSON.parse(String(event.data)) as {
+          type?: string;
+          event?: string;
+          data?: { replay?: boolean };
+        };
         const kind = payload.type || payload.event;
         if (kind === "metrics.snapshot" || kind === "alert.triggered") onSnapshot();
+        if (kind === "alert.triggered" && payload.data && !payload.data.replay) onAlert?.(payload.data);
       } catch {
         /* ignore malformed frames */
       }

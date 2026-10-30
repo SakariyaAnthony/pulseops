@@ -94,6 +94,37 @@ The user table needs migration `005_user_accounts` (adds `role`, `is_active`, `l
 
 Follow [SCAN.md](SCAN.md). For page speed, the **Web Vitals** page shows real-user Core Web Vitals and on-demand Lighthouse audits (see SCAN.md section 8; Lighthouse needs `cd apps/api/tools/lighthouse && npm install` once). You can add a project from the dashboard with **+ New project** in the top bar (or **Edit setup** on the Assets page). One project holds the asset scan and API performance: capture the app's API calls from the API page, or connect live traffic from Settings.
 
+## 6. Push notifications for alerts
+
+When an alert incident opens, PulseOps tells you in two ways:
+
+- **PulseOps is open and visible:** a banner slides in at the bottom right. It shows the severity, the rule, the environment, and **Acknowledge** and **View incident** buttons. Critical banners stay until you close them; the others close after 8 seconds. This needs no setup.
+- **The tab is in the background, or every PulseOps tab is closed (the browser is still running):** the browser shows a system notification with **View incident** and **Acknowledge** buttons. **View incident** opens `/alerts` with that incident highlighted. **Acknowledge** marks it acknowledged without opening the dashboard. The app icon badge shows how many incidents are firing.
+
+Incidents open when ingested metrics cross an enabled rule's threshold, using the last minute of traffic. They also open when you click **Fire test** next to a rule on the Alerts page. Each rule opens at most one incident at a time until that incident is resolved. Only the project owner's browsers get push messages.
+
+### Turn on browser push
+
+1. Make a VAPID key pair (the keys that identify this server to the browser's push service). From `apps/api`:
+
+   ```bash
+   python tools/gen_vapid.py >> .env
+   ```
+
+   Restart the API. `GET /push/vapid-key` should now say `"enabled": true`.
+2. In the dashboard, open **Settings → Push notifications**, click **Turn on**, and allow notifications when the browser asks. Use the switches to choose which severities reach this browser.
+3. On the Alerts page, click **Fire test** on a rule. With the tab visible you get the banner. Switch to another app or close the PulseOps tab and fire again from another tab or with `curl`, and you get the system notification.
+
+Push needs `http://127.0.0.1`, `http://localhost` or HTTPS, and migration `006_push_subscriptions` (`alembic upgrade head`). If the API venv is owned by root, install `pywebpush` with `pip install --target .vendor pywebpush`; the API picks up `.vendor` on its own.
+
+| Browser | Notification | Action buttons | Chart image | App badge |
+| --- | --- | --- | --- | --- |
+| Chrome, Edge on Windows, Linux, Android | Yes | Yes | Yes | Yes (installed app) |
+| Chrome, Edge on macOS | Yes | Yes (under **Options**) | No | Yes (installed app) |
+| Firefox | Yes | No | No | No |
+| Safari on macOS | Yes | No | No | No |
+| Safari on iPhone and iPad | Only after **Add to Home Screen** | No | No | Yes |
+
 ## Stop
 
 Stop the dashboard and the API with Ctrl+C in each terminal. Then:

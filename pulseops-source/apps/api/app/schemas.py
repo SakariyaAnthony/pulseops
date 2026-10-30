@@ -99,6 +99,35 @@ class AckIn(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+PushSeverity = Literal["critical", "warning", "info"]
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(min_length=1, max_length=255)
+    auth: str = Field(min_length=1, max_length=255)
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str = Field(min_length=1, max_length=2048, pattern=r"^https://")
+    keys: PushKeys
+    severities: list[PushSeverity] = Field(
+        default_factory=lambda: ["critical", "warning", "info"], max_length=3
+    )
+    user_agent: str | None = Field(default=None, max_length=512)
+
+
+class PushSubscriptionPatch(BaseModel):
+    severities: list[PushSeverity] = Field(max_length=3)
+
+
+class PushUnsubscribeIn(BaseModel):
+    endpoint: str = Field(min_length=1, max_length=2048)
+
+
+class PushAckIn(BaseModel):
+    token: str = Field(min_length=1, max_length=2048)
+
+
 class RequestPoint(BaseModel):
     time: FlexibleTime = None
     env: str = Field(default="prod", max_length=64)

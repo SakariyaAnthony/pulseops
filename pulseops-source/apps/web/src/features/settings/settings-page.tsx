@@ -19,6 +19,7 @@ import {
   ConnectDialog,
   ConnectSnippet,
 } from "@/features/settings/connect-snippet";
+import { PushPanel } from "@/features/settings/push-panel";
 import { useProjectsQuery, useSettingsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { api } from "@/lib/api/client";
@@ -158,6 +159,7 @@ export function SettingsPage() {
                 ))}
               </ul>
             </Panel>
+            <PushPanel />
             <Panel title="Notification channels">
               {settings.channels.length === 0 ? (
                 <p className="text-sm text-dim">Not configured</p>

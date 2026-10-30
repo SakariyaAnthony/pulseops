@@ -52,6 +52,19 @@ def issue_token(user_id: UUID, kind: str, ttl_seconds: int) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
+def issue_push_ack_token(user_id: UUID, incident_id: UUID) -> str:
+    """Single-incident token embedded in a push notification so the service worker can acknowledge it."""
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "typ": "push_ack",
+        "inc": str(incident_id),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(seconds=settings.push_ack_ttl_seconds)).timestamp()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
 def decode_token(token: str, expected_type: str) -> dict:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])

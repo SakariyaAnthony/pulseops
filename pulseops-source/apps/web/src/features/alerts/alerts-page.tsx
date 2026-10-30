@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Zap } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Panel } from "@/components/shared/panel";
@@ -14,6 +16,7 @@ import { useScope } from "@/hooks/use-scope";
 import { api } from "@/lib/api/client";
 import type { RuleInput } from "@/lib/api/types";
 import { formatRelative } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export function AlertsPage() {
   const scope = useScope();
@@ -21,6 +24,8 @@ export function AlertsPage() {
   const incidents = useIncidentsQuery();
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [params] = useSearchParams();
+  const focused = params.get("incident");
 
   useEffect(() => {
     document.title = "Alerts · PulseOps";
@@ -47,6 +52,18 @@ export function AlertsPage() {
       toast.success("Incident acknowledged");
     },
   });
+
+  const fire = useMutation({
+    mutationFn: (ruleId: string) => api.fireTestIncident(scope.project, ruleId),
+    onSuccess: invalidate,
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Banners and push notifications link here with ?incident=<id>.
+  useEffect(() => {
+    if (!focused || !incidents.data?.some((item) => item.id === focused)) return;
+    document.getElementById(`incident-${focused}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focused, incidents.data]);
 
   const create = useMutation({
     mutationFn: (input: RuleInput) => api.createRule(scope.project, input),
@@ -83,6 +100,16 @@ export function AlertsPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => fire.mutate(rule.id)}
+                        disabled={fire.isPending}
+                        title="Opens a real firing incident for this rule, with an in-app banner and a push message"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        Fire test
+                      </Button>
                       <StatusBadge status={rule.severity} />
                       <Switch
                         checked={rule.enabled}
@@ -110,7 +137,14 @@ export function AlertsPage() {
             <Panel title="Incidents">
               <ol className="space-y-4 border-l border-line pl-4">
                 {items.map((incident) => (
-                  <li key={incident.id} className="relative">
+                  <li
+                    key={incident.id}
+                    id={`incident-${incident.id}`}
+                    className={cn(
+                      "relative scroll-mt-24 rounded-lg transition-colors",
+                      incident.id === focused && "-mx-2 bg-violet/10 px-2 py-2 ring-1 ring-violet/40",
+                    )}
+                  >
                     <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-violet" />
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>

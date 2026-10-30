@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.alerting import open_incident
 from app.db import get_db
 from app.deps import fetch_project, get_current_user, get_owned_project
 from app.models import AlertIncident, AlertRule, Project, User
@@ -70,6 +71,13 @@ def delete_rule(rule_id: UUID, project: Project = Depends(get_owned_project), db
     db.delete(rule)
     db.commit()
     return None
+
+
+@router.post("/projects/{project_id}/alert-rules/{rule_id}/test", status_code=201)
+def fire_test_incident(rule_id: UUID, project: Project = Depends(get_owned_project), db: Session = Depends(get_db)):
+    rule = _rule_or_404(db, project, rule_id)
+    incident = open_incident(db, rule, None, test=True)
+    return incident_out(incident)
 
 
 @router.get("/incidents")

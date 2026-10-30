@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     register_limit_per_hour: int = Field(default=10, validation_alias="PULSEOPS_REGISTER_LIMIT")
     lighthouse_bin: str = Field(default="", validation_alias="PULSEOPS_LIGHTHOUSE_BIN")
     chrome_path: str = Field(default="", validation_alias="PULSEOPS_CHROME_PATH")
+    vapid_public_key: str = Field(default="", validation_alias="PULSEOPS_VAPID_PUBLIC_KEY")
+    vapid_private_key: str = Field(default="", validation_alias="PULSEOPS_VAPID_PRIVATE_KEY")
+    vapid_subject: str = Field(default="mailto:alerts@pulseops.dev", validation_alias="PULSEOPS_VAPID_SUBJECT")
+    push_ack_ttl_seconds: int = 60 * 60 * 24
+
+    @property
+    def push_enabled(self) -> bool:
+        return bool(self.vapid_public_key and self.vapid_private_key)
 
 
 settings = Settings()

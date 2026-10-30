@@ -1,10 +1,11 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { dismissAlertBanner, showAlertBanner } from "@/components/shared/alert-banner";
 import { PageSkeleton } from "@/components/shared/states";
 import {
   Sheet,
@@ -15,8 +16,11 @@ import {
 import { useIncidentsQuery, useProjectsQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { FirstProject } from "@/features/onboarding/first-project";
+import { adaptIncidents } from "@/lib/api/adapt";
 import { api, probeApi } from "@/lib/api/client";
 import { TIME_RANGES } from "@/lib/api/types";
+import { onWorkerMessage, registerServiceWorker, setBadge, syncPush } from "@/lib/push";
+import { withScope } from "@/lib/scope";
 import { connectLive } from "@/lib/ws";
 import { useSession } from "@/store/session";
 import { useUi } from "@/store/ui";
@@ -38,6 +42,7 @@ export function AppShell() {
   const commandOpen = useUi((state) => state.commandOpen);
   const client = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const incidents = useIncidentsQuery();
   const projects = useProjectsQuery();
@@ -104,6 +109,23 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [commandOpen, setCommandOpen, update]);
 
+  // Socket and service worker listeners outlive a render, so they call the latest version through a ref.
+  const announceRef = useRef<(raw: unknown) => void>(() => undefined);
+  useEffect(() => {
+    announceRef.current = (raw: unknown) => {
+      const [incident] = adaptIncidents([raw], scope.project);
+      if (!incident) return;
+      showAlertBanner(incident, {
+        onView: (item) =>
+          navigate(withScope(`/alerts?incident=${encodeURIComponent(item.id)}`, scope)),
+        onAck: async (item) => {
+          await api.ack(item.id);
+          void client.invalidateQueries({ queryKey: ["incidents"] });
+        },
+      });
+    };
+  });
+
   useEffect(() => {
     if (!live || !token) return;
     let stopped = false;
@@ -118,6 +140,7 @@ export function AppShell() {
           void client.invalidateQueries({ queryKey: ["overview"] });
           void client.invalidateQueries({ queryKey: ["incidents"] });
         },
+        onAlert: (raw) => announceRef.current(raw),
       });
     });
     return () => {
@@ -125,6 +148,29 @@ export function AppShell() {
       disconnect?.();
     };
   }, [client, live, scope.project, token]);
+
+  useEffect(() => {
+    if (!token || token === "demo.pulseops.token") return;
+    void registerServiceWorker().then(() => syncPush());
+    return onWorkerMessage((message) => {
+      if (message.type === "push.alert") {
+        void client.invalidateQueries({ queryKey: ["incidents"] });
+        announceRef.current(message.payload.data?.incident);
+      } else if (message.type === "push.acked") {
+        if (message.incidentId) dismissAlertBanner(message.incidentId);
+        void client.invalidateQueries({ queryKey: ["incidents"] });
+      } else if (message.type === "push.navigate") {
+        const target = new URL(message.url, window.location.origin);
+        navigate(`${target.pathname}${target.search}`);
+      } else if (message.type === "push.resubscribed") {
+        void syncPush(message.subscription);
+      }
+    });
+  }, [client, navigate, token]);
+
+  useEffect(() => {
+    setBadge(firing);
+  }, [firing]);
 
   const noProjects =
     projects.isSuccess &&

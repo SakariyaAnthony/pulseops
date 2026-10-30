@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.alerting import evaluate_rules
 from app.db import get_db
 from app.deps import get_api_key
 from app.models import ApiKey, Deploy
@@ -201,6 +202,13 @@ def ingest_events(body: EventsIn, api_key: ApiKey = Depends(get_api_key), db: Se
 
 def _publish_snapshot(db: Session, project_id) -> None:
     try:
-        publish(project_id, {"event": "metrics.snapshot", "data": build_snapshot(db, project_id)})
+        snapshot = build_snapshot(db, project_id)
+        publish(project_id, {"event": "metrics.snapshot", "data": snapshot})
     except Exception:
         logger.warning("snapshot publish failed", exc_info=True)
+        return
+    try:
+        evaluate_rules(db, project_id, snapshot)
+    except Exception:
+        db.rollback()
+        logger.warning("alert evaluation failed", exc_info=True)
