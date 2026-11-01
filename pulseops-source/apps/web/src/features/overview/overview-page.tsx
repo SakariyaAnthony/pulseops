@@ -7,6 +7,7 @@ import { Panel } from "@/components/shared/panel";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, PageSkeleton, QueryGate } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
+import { ScanOverview } from "@/features/overview/scan-overview";
 import { useInsightsQuery, useOverviewQuery } from "@/hooks/queries";
 import { useScope } from "@/hooks/use-scope";
 import { formatCompact, formatMs, formatPct, formatRelative } from "@/lib/format";
@@ -31,9 +32,13 @@ export function OverviewPage() {
       skeleton={<PageSkeleton />}
       isEmpty={(data) => data.empty}
       empty={
-        <EmptyState
-          title="No telemetry in this environment yet"
-          body="Dev is quiet on purpose. Point the SDK at it and the same overview fills in with latency, errors, and saturation."
+        <ScanOverview
+          empty={
+            <EmptyState
+              title="No telemetry in this environment yet"
+              body="Dev is quiet on purpose. Point the SDK at it and the same overview fills in with latency, errors, and saturation."
+            />
+          }
         />
       }
     >

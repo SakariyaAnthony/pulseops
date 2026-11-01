@@ -140,7 +140,9 @@ export function EndpointsPage() {
             onCapture={() => setSource("capture")}
             hasCapture={Boolean(capture)}
           />
-        ) : running ? null : (
+        ) : running ? null : capture ? (
+          <NoApiCalls capture={capture} />
+        ) : (
           <NoCapture baseUrl={baseUrl} />
         )
       ) : (
@@ -317,9 +319,15 @@ function CaptureStatus({
           <span className="num text-dim">
             {capture.service.capture.baseUrl}
           </span>{" "}
-          · {capture.service.capture.calls} calls across{" "}
-          {capture.service.capture.routes} routes. p95 needs 5 samples and p99
-          needs 20, otherwise they show a dash.
+          {capture.service.capture.calls === 0 ? (
+            <>· no API calls found.</>
+          ) : (
+            <>
+              · {capture.service.capture.calls} calls across{" "}
+              {capture.service.capture.routes} routes. p95 needs 5 samples and
+              p99 needs 20, otherwise they show a dash.
+            </>
+          )}
         </p>
       ) : null}
     </>
@@ -340,6 +348,41 @@ function NoCapture({ baseUrl }: { baseUrl: string }) {
         No code changes are needed. To watch real traffic as you use the app
         instead, choose Live traffic.
       </p>
+    </Panel>
+  );
+}
+
+function NoApiCalls({ capture }: { capture: ApiCapture }) {
+  const scope = useScope();
+  const pages = capture.scan.config.routes;
+  return (
+    <Panel
+      title="This app made no API calls"
+      description={`PulseOps opened ${capture.scan.config.baseUrl || "your app"} and visited ${pages.length === 1 ? "1 page" : `${pages.length} pages`}, but the app did not call any API (no fetch or XHR requests).`}
+    >
+      <div className="space-y-3 text-sm text-dim">
+        {pages.length ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-mute">Pages visited:</span>
+            {pages.map((page) => (
+              <span
+                key={page}
+                className="num rounded-md border border-line bg-base/50 px-1.5 py-0.5 text-[11px] text-ink"
+              >
+                {page}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <p>
+          That is normal for a static site or a micro frontend that only renders
+          UI. If the app should call an API, add the routes that trigger those
+          calls to the scan setup and capture again.
+        </p>
+        <Button asChild size="sm" variant="secondary">
+          <Link to={withScope("/scans", scope)}>Edit scan routes</Link>
+        </Button>
+      </div>
     </Panel>
   );
 }
