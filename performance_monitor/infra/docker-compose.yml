@@ -1,0 +1,58 @@
+name: pulseops
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: pulseops-timescaledb
+    environment:
+      POSTGRES_USER: pulseops
+      POSTGRES_PASSWORD: pulseops
+      POSTGRES_DB: pulseops
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulseops -d pulseops"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulseops-redis
+    ports:
+      - "127.0.0.1:63799:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: pulseops-api
+    environment:
+      DATABASE_URL: postgresql+psycopg://pulseops:pulseops@timescaledb:5432/pulseops
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: dev-pulseops-local-signing-key-32b
+      API_PORT: "47322"
+    ports:
+      - "47322:47322"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head && python -m app.seed &&
+      uvicorn app.main:app --host 0.0.0.0 --port 47322"
+    restart: unless-stopped
+
+volumes:
+  timescale_data:

@@ -1,0 +1,9 @@
+{
+  "name": "pulseops-lighthouse",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lighthouse CLI used by the PulseOps Web Vitals audit. Install with: npm install",
+  "dependencies": {
+    "lighthouse": "^12.8.0"
+  }
+}
